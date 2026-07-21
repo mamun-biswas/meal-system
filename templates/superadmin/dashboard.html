@@ -1,0 +1,165 @@
+{% extends 'superadmin/base_admin.html' %}
+{% block title %}All Messes{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+  <div>
+    <h1 style="font-size:22px;font-weight:800;letter-spacing:-.4px">All Messes</h1>
+    <div style="color:var(--t3);font-size:13px;margin-top:2px">Approve new registrations, message managers, or remove a mess</div>
+  </div>
+  <form method="get" style="display:flex;gap:8px;flex-wrap:wrap">
+    <input type="text" name="q" class="form-control" placeholder="Search by name or Mess ID..." value="{{ q }}" style="width:260px;max-width:100%">
+    <button type="submit" class="btn btn-ghost">Search</button>
+  </form>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:22px">
+  <div class="stat-card" style="border-top:2px solid var(--accent)">
+    <div class="l">🏠 Total Messes</div><div class="v">{{ total_count }}</div>
+  </div>
+  <div class="stat-card" style="border-top:2px solid var(--amber)">
+    <div class="l">⏳ Pending Approval</div><div class="v" style="color:var(--amber)">{{ pending_count }}</div>
+  </div>
+  <div class="stat-card" style="border-top:2px solid var(--green)">
+    <div class="l">✓ Approved</div><div class="v" style="color:var(--green)">{{ approved_count }}</div>
+  </div>
+</div>
+
+{% if rows %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Mess ID</th>
+        <th>Mess Name</th>
+        <th>Manager Name</th>
+        <th>Manager Phone</th>
+        <th>Members</th>
+        <th>Status</th>
+        <th>Registered</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td style="font-family:'JetBrains Mono',monospace;font-weight:700">{{ row.mess.code }}</td>
+        <td style="font-weight:600;color:var(--t)">{{ row.mess.name }}</td>
+        <td>{{ row.manager_name }}</td>
+        <td style="font-family:'JetBrains Mono',monospace">{{ row.manager_phone }}</td>
+        <td>{{ row.member_count }}</td>
+        <td>
+          {% if row.mess.is_approved %}
+          <span class="badge badge-approved">✓ Approved</span>
+          {% else %}
+          <span class="badge badge-pending">⏳ Pending</span>
+          {% endif %}
+        </td>
+        <td style="white-space:nowrap;color:var(--t3);font-size:12px">{{ row.mess.created_at|date:"d M Y" }}</td>
+        <td style="white-space:nowrap">
+          <div style="display:flex;gap:6px;justify-content:flex-end">
+            {% if not row.mess.is_approved %}
+            <form method="post" action="{% url 'superadmin_mess_approve' row.mess.pk %}" style="display:inline">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-success btn-xs">✓ Approve</button>
+            </form>
+            {% else %}
+            <form method="post" action="{% url 'superadmin_mess_revoke' row.mess.pk %}" style="display:inline"
+                  onsubmit="return confirm('Revoke approval for {{ row.mess.name }}? Its members will be locked out until re-approved.');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-ghost btn-xs">Revoke</button>
+            </form>
+            {% endif %}
+            <button type="button" class="btn btn-ghost btn-xs" onclick="openMessageModal({{ row.mess.pk }}, '{{ row.mess.name|escapejs }}')">✉ Message</button>
+            <button type="button" class="btn btn-danger btn-xs" onclick="openDeleteModal({{ row.mess.pk }}, '{{ row.mess.name|escapejs }}')">🗑 Delete</button>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:40px;color:var(--t3)">
+  {% if q %}No messes match "{{ q }}".{% else %}No messes have been registered yet.{% endif %}
+</div>
+{% endif %}
+
+<!-- SEND MESSAGE MODAL -->
+<div class="modal-overlay" id="messageModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">✉ Send Message to <span id="msgMessName"></span></div>
+      <button type="button" class="btn btn-ghost btn-xs" onclick="closeMessageModal()">✕</button>
+    </div>
+    <form method="post" id="messageForm">
+      {% csrf_token %}
+      <div class="modal-body">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Message</label>
+          <textarea name="message" class="form-control" rows="4" placeholder="This message will appear the next time anyone from this mess logs in..." required></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeMessageModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Send Message</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" style="color:var(--red)">🗑 Delete <span id="delMessName"></span>?</div>
+      <button type="button" class="btn btn-ghost btn-xs" onclick="closeDeleteModal()">✕</button>
+    </div>
+    <form method="post" id="deleteForm">
+      {% csrf_token %}
+      <div class="modal-body">
+        <div class="alert alert-danger" style="margin-bottom:16px">
+          <span>⚠️</span><span>This permanently deletes the mess and <b>all</b> of its members, meals, deposits, expenses, and reports. This cannot be undone.</span>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Type the mess name (<b id="delMessNameInline"></b>) to confirm</label>
+          <input type="text" name="confirm_name" class="form-control" id="confirmNameInput" autocomplete="off" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeDeleteModal()">Cancel</button>
+        <button type="submit" class="btn btn-danger">Delete Permanently</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openMessageModal(pk, name){
+  document.getElementById('msgMessName').textContent = name;
+  document.getElementById('messageForm').action = '/superadmin/mess/' + pk + '/message/';
+  document.getElementById('messageModal').classList.add('open');
+}
+function closeMessageModal(){
+  document.getElementById('messageModal').classList.remove('open');
+}
+function openDeleteModal(pk, name){
+  document.getElementById('delMessName').textContent = name;
+  document.getElementById('delMessNameInline').textContent = name;
+  document.getElementById('confirmNameInput').value = '';
+  document.getElementById('deleteForm').action = '/superadmin/mess/' + pk + '/delete/';
+  document.getElementById('deleteModal').classList.add('open');
+}
+function closeDeleteModal(){
+  document.getElementById('deleteModal').classList.remove('open');
+}
+document.addEventListener('click', function(e){
+  ['messageModal','deleteModal'].forEach(function(id){
+    var overlay = document.getElementById(id);
+    if(overlay && e.target === overlay) overlay.classList.remove('open');
+  });
+});
+</script>
+{% endblock %}

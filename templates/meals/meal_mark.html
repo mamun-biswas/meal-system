@@ -1,0 +1,734 @@
+{% extends 'base.html' %}
+{% load perm_tags %}
+{% block title %}Meal Mark — {{ month_name }} {{ year }}{% endblock %}
+{% block nav_meals %}active{% endblock %}
+{% block page_title %}Meal Mark{% endblock %}
+{% block page_sub %}{{ month_name }} {{ year }} — record daily meals{% endblock %}
+
+{% block content %}
+<!-- ── MONTH / YEAR SELECTOR ─────────────────────────── -->
+<div class="card" style="margin-bottom:18px;padding:16px 20px">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select id="sel-month" class="form-control" style="width:145px" onchange="changeMonthYear()">
+        {% for mn,mname in months %}
+          <option value="{{ mn }}"{% if mn == month %} selected{% endif %}>{{ mname }}</option>
+        {% endfor %}
+      </select>
+      <select id="sel-year" class="form-control" style="width:88px" onchange="changeMonthYear()">
+        {% for y in years %}
+          <option value="{{ y }}"{% if y == year %} selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+      <span class="badge badge-accent" style="font-size:12px;padding:5px 12px">{{ month_name }} {{ year }}</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     DAY ENTRY
+══════════════════════════════════════════════════════ -->
+<div id="tab-day">
+
+  <!-- DRAFT TOTALS STAT — date-independent running totals from the
+       draft table across all visible members. Updates live whenever a
+       per-member draft Save is clicked, without needing a page reload. -->
+  {% if can_edit_all %}
+  <div class="card" style="margin-bottom:18px;padding:16px 20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:13px;font-weight:700">📋 Draft Meals (Pending)</div>
+      <div style="font-size:11px;color:var(--t3)" id="draft-stat-member-count">
+        {{ draft_totals.members_with_draft }} of {{ members|length }} member{{ members|length|pluralize }} with pending draft
+      </div>
+    </div>
+    <div class="stat-grid" style="gap:12px">
+      <div class="stat-card amber" style="padding:14px 16px">
+        <div class="stat-icon">🌅</div>
+        <div class="stat-label">Morning</div>
+        <div class="stat-val amber" id="draft-stat-morning">{{ draft_totals.morning|floatformat:0 }}</div>
+        <div class="stat-sub">total across all members</div>
+      </div>
+      <div class="stat-card blue" style="padding:14px 16px">
+        <div class="stat-icon">🍛</div>
+        <div class="stat-label">Lunch</div>
+        <div class="stat-val blue" id="draft-stat-lunch">{{ draft_totals.lunch|floatformat:0 }}</div>
+        <div class="stat-sub">total across all members</div>
+      </div>
+      <div class="stat-card purple" style="padding:14px 16px">
+        <div class="stat-icon">🌙</div>
+        <div class="stat-label">Dinner</div>
+        <div class="stat-val purple" id="draft-stat-dinner">{{ draft_totals.dinner|floatformat:0 }}</div>
+        <div class="stat-sub">total across all members</div>
+      </div>
+      <div class="stat-card green" style="padding:14px 16px">
+        <div class="stat-icon">🍽️</div>
+        <div class="stat-label">Total</div>
+        <div class="stat-val green" id="draft-stat-total">{{ draft_totals.total|floatformat:0 }}</div>
+        <div class="stat-sub">all slots combined</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- SELF MEAL INPUT STATUS (read-only, for the member viewing this page) -->
+  {% if can_edit_self or not can_edit_all %}
+  <div class="card" style="margin-bottom:18px;padding:14px 20px">
+    <div style="font-size:13px;font-weight:700;margin-bottom:10px">Self Meal Input</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap" id="self-input-status-row"></div>
+  </div>
+  {% endif %}
+
+  <!-- DAY CHIPS -->
+  <div class="card" style="margin-bottom:18px;padding:16px 20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.6px">
+        Select Day
+      </div>
+      <div id="day-legend" style="display:flex;gap:14px;font-size:11px;color:var(--t3)">
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--accent);margin-right:4px;vertical-align:middle"></span>Selected</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--blue);margin-right:4px;vertical-align:middle"></span>Has data</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--amber);margin-right:4px;vertical-align:middle"></span>Special</span>
+      </div>
+    </div>
+    <div class="day-chips" id="day-chips"></div>
+    <!-- special day banner -->
+    <div id="special-banner" style="display:none;margin-top:12px"></div>
+  </div>
+
+  <!-- DAY HEADER + ACTIONS -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+    <div>
+      <div style="font-size:16px;font-weight:700" id="day-heading">— Pick a day above —</div>
+      <div style="font-size:12px;color:var(--t3);margin-top:3px" id="day-sub-heading"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span id="eff-total-badge" style="display:none" class="badge badge-accent" style="font-size:13px"></span>
+      {% if can_edit_all %}
+      <button class="btn btn-ghost btn-sm" onclick="bulkSet(0,0,0)">⬜ Clear All</button>
+      <button class="btn btn-ghost btn-sm" onclick="bulkSet(0,1,1)">✅ L+D All</button>
+      <button class="btn btn-ghost btn-sm" onclick="bulkSet(1,1,1)">✌️ All 3</button>
+      <button class="btn btn-ghost btn-sm" id="save-morning-btn" onclick="saveDay(['morning'])">🌅 Save Morning</button>
+      <button class="btn btn-ghost btn-sm" id="save-lunch-btn" onclick="saveDay(['lunch'])">🍛 Save Lunch</button>
+      <button class="btn btn-ghost btn-sm" id="save-dinner-btn" onclick="saveDay(['dinner'])">🌙 Save Dinner</button>
+      <button class="btn btn-primary btn-sm" id="save-all-btn" onclick="saveDay(['morning','lunch','dinner'])">💾 Save All Meal</button>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- MEAL TYPE LEGEND -->
+  <div style="display:flex;gap:16px;margin-bottom:14px;font-size:12px;flex-wrap:wrap">
+    <span style="display:flex;align-items:center;gap:5px">
+      <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#f97316"></span>
+      <strong>M</strong> Morning
+    </span>
+    <span style="display:flex;align-items:center;gap:5px">
+      <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--accent)"></span>
+      <strong>L</strong> Lunch
+    </span>
+    <span style="display:flex;align-items:center;gap:5px">
+      <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#8b5cf6"></span>
+      <strong>D</strong> Dinner
+    </span>
+  </div>
+
+  <!-- MEMBER CARDS GRID -->
+  <div id="meal-cards-grid" style="
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(320px,1fr));
+    gap:12px;
+    margin-bottom:24px
+  "></div>
+
+  <!-- EMPTY HINT -->
+  <div id="no-day-hint" style="text-align:center;padding:60px 20px;color:var(--t3)">
+    <div style="font-size:48px;margin-bottom:12px;opacity:.3">📅</div>
+    <div style="font-size:15px;font-weight:600;color:var(--t2);margin-bottom:6px">Select a day above</div>
+    <div style="font-size:13px">Click any day chip to view and edit meal entries</div>
+  </div>
+
+</div><!-- /tab-day -->
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── DATA FROM DJANGO ──────────────────────────────────────
+const MEMBERS    = {{ members_js|safe }};
+const GRID       = {{ grid_js|safe }};     // {memberId: {day: {morning,lunch,dinner,count,eff,note}}} — true committed record, used for day-chip tooltips (the full month grid now lives on the Monthly Meal Record page). NOT used to pre-fill Day Entry inputs (those always come from DRAFT).
+const DRAFT      = {{ draft_js|safe }};    // {memberId: {morning,lunch,dinner}} — date-independent pending values; sole source for Day Entry input/badge pre-fill
+const DAY_TOTALS = {{ day_totals_js|safe }}; // {day: {total,morning,lunch,dinner,eff,multi_morning,multi_lunch,multi_dinner,multi,label}}
+const COUNT_WEIGHTS = {{ count_weights_js|safe }}; // {morning,lunch,dinner} — global Meal Count Settings weight, e.g. morning 1 mark = 0.5 effective meals
+const DAYS       = {{ days_in_month }};
+const CAN_EDIT      = {% if can_edit %}true{% else %}false{% endif %};
+const CAN_EDIT_ALL  = {% if can_edit_all %}true{% else %}false{% endif %};
+const CAN_EDIT_SELF = {% if can_edit_self %}true{% else %}false{% endif %};
+const OWN_MEMBER_ID = "{{ own_member_id }}";
+const INPUT_SETTINGS = {{ input_settings_js|safe }}; // {morning:{enabled,start,end,open_now}, lunch:{...}, dinner:{...}}
+const MONTH      = {{ month }};
+const YEAR       = {{ year }};
+const MONTH_NAME = "{{ month_name }}";
+
+// ── LOCAL STATE ───────────────────────────────────────────
+// localGrid is purely a scratch buffer for this session's in-progress
+// edits (used to keep the live "Total" badge correct while typing, and
+// to preserve one member's unsaved edits when another slot gets saved).
+// It intentionally starts EMPTY rather than cloned from GRID — the Meal
+// Mark screen's values always come from the draft (see dayValuesFor),
+// so seeding it from committed data would silently reintroduce
+// committed numbers into the live total the moment a field is edited.
+let localGrid = {};
+let selDay    = {{ default_day }};
+
+// Returns {morning, lunch, dinner} for a member on the currently selected
+// day. The Meal Mark screen ALWAYS pre-fills from that member's
+// date-independent draft (MealMarkDraft) — regardless of whether a
+// MealMark already exists (committed/locked or not) for the selected
+// date. Committed MealMark data is intentionally NOT used here; it still
+// drives the day-chip tooltips on this page and the full Monthly Meal
+// Record page, which show the true historical record, but the Day
+// Entry input/badge values on this screen come from the draft only.
+function dayValuesFor(mid) {
+  const draft = DRAFT[mid];
+  if (draft) {
+    return {
+      morning: draft.morning || 0,
+      lunch:   draft.lunch   || 0,
+      dinner:  draft.dinner  || 0,
+    };
+  }
+  return { morning: 0, lunch: 0, dinner: 0 };
+}
+
+// ── MULTIPLIER HELPERS ─────────────────────────────────────
+// info.multi_morning/multi_lunch/multi_dinner come from DAY_TOTALS (per-day config).
+// info.multi is only set when all three slots share the same value (simple display case).
+function isSpecialInfo(info) {
+  const mm = info.multi_morning ?? 1.0, ml = info.multi_lunch ?? 1.0, md = info.multi_dinner ?? 1.0;
+  return mm !== 1.0 || ml !== 1.0 || md !== 1.0;
+}
+function effFromParts(morning, lunch, dinner, info) {
+  const mm = info.multi_morning ?? 1.0, ml = info.multi_lunch ?? 1.0, md = info.multi_dinner ?? 1.0;
+  // Mirrors the server's MealMark.effective_count(): weight x day-multiplier, per slot.
+  return (morning * mm * COUNT_WEIGHTS.morning) + (lunch * ml * COUNT_WEIGHTS.lunch) + (dinner * md * COUNT_WEIGHTS.dinner);
+}
+function multiplierLabel(info) {
+  const mm = info.multi_morning ?? 1.0, ml = info.multi_lunch ?? 1.0, md = info.multi_dinner ?? 1.0;
+  if (mm === ml && ml === md) return `×${mm}`;
+  return `M×${mm} L×${ml} D×${md}`;
+}
+
+// ── DAY CHIPS ─────────────────────────────────────────────
+function buildDayChips() {
+  const el = document.getElementById('day-chips');
+  el.innerHTML = '';
+  for (let d = 1; d <= DAYS; d++) {
+    const info     = DAY_TOTALS[String(d)] || {};
+    const hasData  = info.total > 0;
+    const special  = isSpecialInfo(info);
+    const isToday  = (d === {{ default_day }} && MONTH === {{ today.month }} && YEAR === {{ today.year }});
+
+    let cls = 'day-chip';
+    if (d === selDay)  cls += ' active';
+    else if (special)  cls += ' special';
+    else if (hasData)  cls += ' has-data';
+
+    const chip = document.createElement('div');
+    chip.className   = cls;
+    chip.textContent = d;
+    if (isToday) chip.style.fontWeight = '800';
+    chip.title = special
+      ? `${multiplierLabel(info)} ${info.label || 'Special'} | ${info.total} meals`
+      : hasData
+        ? `M:${info.morning||0} L:${info.lunch||0} D:${info.dinner||0} · Total:${info.total} · Eff:${(info.eff||0).toFixed(1)}`
+        : 'No entries';
+    chip.onclick = () => selectDay(d);
+    el.appendChild(chip);
+  }
+}
+
+// ── SELECT DAY ────────────────────────────────────────────
+function selectDay(d) {
+  selDay = d;
+  buildDayChips();
+  renderDayHeading();
+  renderMealCards();
+  updateSaveButtonsState();
+  if (!CAN_EDIT_ALL) buildSelfInputStatusRow();
+  document.getElementById('no-day-hint').style.display = 'none';
+  document.getElementById('meal-cards-grid').style.display = '';
+}
+
+function renderDayHeading() {
+  const info  = DAY_TOTALS[String(selDay)] || {};
+  const special = isSpecialInfo(info);
+  const eff   = calcEffTotal();
+
+  document.getElementById('day-heading').textContent =
+    `Day ${selDay} — ${MONTH_NAME} ${YEAR}`;
+  document.getElementById('day-sub-heading').textContent = CAN_EDIT_ALL
+    ? `${MEMBERS.length} members  ·  ${eff.toFixed(1)} effective meals today` +
+      (special ? `  ·  ${multiplierLabel(info)} multiplier` : '')
+    : `Your effective meals today: ${eff.toFixed(1)}` +
+      (special ? `  ·  ${multiplierLabel(info)} multiplier` : '');
+
+  const badge = document.getElementById('eff-total-badge');
+  badge.style.display  = 'inline-flex';
+  badge.textContent    = `⚡ ${eff.toFixed(1)} eff. meals`;
+
+  const banner = document.getElementById('special-banner');
+  if (special) {
+    banner.style.display = 'block';
+    banner.innerHTML = `
+      <div class="alert alert-warning" style="margin:0">
+        <span style="font-size:18px">⚡</span>
+        <div>
+          <strong>Special Day — ${multiplierLabel(info)} Multiplier</strong>
+          ${info.label ? `<em> (${info.label})</em>` : ''}
+          <br><span style="font-size:12px">Morning ×${info.multi_morning ?? 1.0} · Lunch ×${info.multi_lunch ?? 1.0} · Dinner ×${info.multi_dinner ?? 1.0} — applied to each meal type's effective count in cost calculations.</span>
+        </div>
+      </div>`;
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+// ── RENDER MEMBER CARDS (with Morning / Lunch / Dinner inputs) ──
+function renderMealCards() {
+  const grid = document.getElementById('meal-cards-grid');
+  const info  = DAY_TOTALS[String(selDay)] || {};
+  const special = isSpecialInfo(info);
+  grid.innerHTML = '';
+
+  MEMBERS.forEach(m => {
+    const vals    = dayValuesFor(m.id);
+    const morning = vals.morning;
+    const lunch   = vals.lunch;
+    const dinner  = vals.dinner;
+    const total   = morning + lunch + dinner;
+    const eff     = effFromParts(morning, lunch, dinner, info).toFixed(2);
+    // Values on this screen always come from the draft, so the hint just
+    // reflects whether that member currently has any non-zero draft.
+    const fromDraft = DRAFT[m.id] && (DRAFT[m.id].morning || DRAFT[m.id].lunch || DRAFT[m.id].dinner);
+    const isOwnCard = (m.id === OWN_MEMBER_ID);
+    // Manager/sub-manager with meal_mark can edit any card, any day —
+    // unchanged. A plain member in the self-input window can edit ONLY
+    // their own card, and ONLY while that specific day has not already
+    // been committed (Save Day) by the Manager/Sub-Manager. Once a day
+    // is locked in, members can no longer change it through self-input.
+    // IMPORTANT: this must check the untouched, server-rendered GRID —
+    // NOT localGrid, which also holds the member's own unsaved local
+    // edits and would otherwise make a normal +/- click look "locked".
+    // Manager/sub-manager with meal_mark can edit any card, any slot, any
+    // day. A plain member can edit their OWN card, but PER MEAL TYPE:
+    // morning/lunch/dinner are each independently editable based on (a)
+    // that meal type's self-input time window being open right now, and
+    // (b) that specific slot not already being locked (committed by the
+    // Manager/Sub-Manager) for the currently selected day.
+    const dayInfo = DAY_TOTALS[String(selDay)] || {};
+    function slotCanEdit(slot) {
+      if (CAN_EDIT_ALL) return true;
+      if (!isOwnCard) return false;
+      const cfg = INPUT_SETTINGS[slot] || { open_now: false };
+      const lockedToday = Boolean(dayInfo[`${slot}_locked`]);
+      return cfg.open_now && !lockedToday;
+    }
+    const slotEditable = { morning: slotCanEdit('morning'), lunch: slotCanEdit('lunch'), dinner: slotCanEdit('dinner') };
+    const anySlotEditable = slotEditable.morning || slotEditable.lunch || slotEditable.dinner;
+
+    const card = document.createElement('div');
+    card.className = 'meal-member-card' + (total > 0 ? ' has-meals' : '') + (isOwnCard && !CAN_EDIT_ALL ? ' own-card' : '');
+    card.id = `card_${m.id}`;
+    if (isOwnCard && !CAN_EDIT_ALL) {
+      card.style.border = '1.5px solid var(--accent)';
+    }
+
+    const SLOT_COLOR = { morning: '#f97316', lunch: 'var(--accent)', dinner: '#8b5cf6' };
+    const SLOT_LABEL = { morning: 'MORNING', lunch: 'LUNCH', dinner: 'DINNER' };
+    const SLOT_VALUE = { morning, lunch, dinner };
+
+    function renderSlotBlock(slot) {
+      const color = SLOT_COLOR[slot];
+      const value = SLOT_VALUE[slot];
+      if (slotEditable[slot]) {
+        return `
+        <div style="text-align:center">
+          <div style="font-size:10px;font-weight:700;color:${color};margin-bottom:3px;letter-spacing:.4px">${SLOT_LABEL[slot]}</div>
+          <div style="display:flex;align-items:center;gap:2px;justify-content:center">
+            <button onclick="changeVal('${m.id}','${slot}',-1)"
+              style="width:22px;height:22px;border-radius:5px;border:1px solid var(--bd2);background:var(--bg4);color:var(--t);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;font-weight:700">−</button>
+            <input type="number" id="inp_${slot}_${m.id}"
+              value="${value}" min="0" max="99" step="1"
+              style="width:44px;text-align:center;border:1px solid ${color};border-radius:5px;padding:3px;font-size:13px;font-weight:700;background:var(--bg);color:${color};font-family:'JetBrains Mono',monospace"
+              oninput="updateVal('${m.id}','${slot}',this.value)"
+              onchange="updateVal('${m.id}','${slot}',this.value)">
+            <button onclick="changeVal('${m.id}','${slot}',1)"
+              style="width:22px;height:22px;border-radius:5px;border:1px solid var(--bd2);background:var(--bg4);color:var(--t);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;font-weight:700">+</button>
+          </div>
+        </div>`;
+      }
+      // Read-only for this slot: badge, plus (for the member's own card
+      // only) a small reason why — locked by Manager vs. window closed.
+      const lockedToday = Boolean(dayInfo[`${slot}_locked`]);
+      let reason = '';
+      if (isOwnCard && !CAN_EDIT_ALL) {
+        if (lockedToday) reason = '🔒 confirmed';
+        else if (INPUT_SETTINGS[slot] && !INPUT_SETTINGS[slot].enabled) reason = 'disabled';
+        else if (INPUT_SETTINGS[slot] && !INPUT_SETTINGS[slot].open_now) reason = 'closed';
+      }
+      return `
+        <div style="text-align:center">
+          <div style="font-size:10px;font-weight:700;color:${color};margin-bottom:3px;letter-spacing:.4px">${SLOT_LABEL[slot]}</div>
+          <div class="badge" style="background:${color};color:#fff;font-size:13px;padding:3px 8px;font-family:'JetBrains Mono',monospace">${value}</div>
+          ${reason ? `<div style="font-size:9px;color:var(--t3);margin-top:2px">${reason}</div>` : ''}
+        </div>`;
+    }
+
+    const mealInputs = `
+      <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+        ${renderSlotBlock('morning')}
+        ${renderSlotBlock('lunch')}
+        ${renderSlotBlock('dinner')}
+      </div>
+      ${(CAN_EDIT_ALL || anySlotEditable) ? `
+      <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <span id="draftflag_${m.id}" style="font-size:10px;color:var(--t3);${fromDraft ? '' : 'visibility:hidden'}">↩ from draft</span>
+        <button id="memberSaveBtn_${m.id}" onclick="saveMemberDraft('${m.id}')"
+          title="Stage this member's current values into the draft table — does not commit to the day's real meal record"
+          style="padding:4px 10px;border-radius:6px;border:1px solid var(--bd2);background:var(--bg3);color:var(--t2);cursor:pointer;font-size:11px;font-weight:600;font-family:inherit">
+          💾 Save Draft
+        </button>
+      </div>` : ''}
+    `;
+
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0">
+          <div class="avatar" style="background:${m.color};flex-shrink:0">${m.initials}</div>
+          <div style="min-width:0">
+            <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+              ${m.name}${isOwnCard && !CAN_EDIT_ALL ? ' <span class="badge badge-accent" style="font-size:9px;padding:1px 6px;vertical-align:middle">YOU</span>' : ''}
+            </div>
+            <div style="font-size:11px;color:var(--t3)">${m.room ? 'Room ' + m.room : '—'}</div>
+          </div>
+        </div>
+        <div class="meal-eff-badge" id="total_${m.id}" style="flex-shrink:0;text-align:right">
+          <div style="font-size:11px;color:var(--t3)">Total</div>
+          <div style="font-weight:700;font-size:16px;font-family:'JetBrains Mono',monospace;color:${total>0?'var(--accent)':'var(--t4)'}">${total}</div>
+          ${special ? `<div style="font-size:10px;color:var(--amber)">⚡ eff: ${eff}</div>` : ''}
+        </div>
+      </div>
+      ${mealInputs}
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// ── COUNT HELPERS ─────────────────────────────────────────
+function changeVal(mid, type, delta) {
+  const inp = document.getElementById(`inp_${type}_${mid}`);
+  if (!inp) return;
+  const newVal = Math.max(0, parseInt(inp.value || 0) + delta);
+  inp.value = newVal;
+  updateVal(mid, type, newVal);
+}
+
+function updateVal(mid, type, rawVal) {
+  const val = Math.max(0, parseInt(rawVal) || 0);
+  if (!localGrid[mid]) localGrid[mid] = {};
+  if (!localGrid[mid][String(selDay)]) {
+    // First edit for this member on this day: seed from the draft (the
+    // same source the visible inputs were pre-filled from) so the other
+    // two meal types aren't silently zeroed out.
+    const seed = dayValuesFor(mid);
+    localGrid[mid][String(selDay)] = {morning: seed.morning, lunch: seed.lunch, dinner: seed.dinner, count: 0};
+  }
+  localGrid[mid][String(selDay)][type] = val;
+
+  const morning = localGrid[mid][String(selDay)].morning || 0;
+  const lunch   = localGrid[mid][String(selDay)].lunch   || 0;
+  const dinner  = localGrid[mid][String(selDay)].dinner  || 0;
+  const total   = morning + lunch + dinner;
+  localGrid[mid][String(selDay)].count = total;
+
+  const info    = DAY_TOTALS[String(selDay)] || {};
+  const special = isSpecialInfo(info);
+  const eff     = effFromParts(morning, lunch, dinner, info).toFixed(2);
+
+  const totalEl = document.getElementById(`total_${mid}`);
+  if (totalEl) {
+    totalEl.innerHTML = `
+      <div style="font-size:11px;color:var(--t3)">Total</div>
+      <div style="font-weight:700;font-size:16px;font-family:'JetBrains Mono',monospace;color:${total>0?'var(--accent)':'var(--t4)'}">${total}</div>
+      ${special ? `<div style="font-size:10px;color:var(--amber)">⚡ eff: ${eff}</div>` : ''}
+    `;
+  }
+
+  const card = document.getElementById(`card_${mid}`);
+  if (card) card.className = 'meal-member-card' + (total > 0 ? ' has-meals' : '');
+
+  const flag = document.getElementById(`draftflag_${mid}`);
+  if (flag) flag.style.visibility = 'hidden';
+
+  const t = calcEffTotal();
+  const badge = document.getElementById('eff-total-badge');
+  if (badge) badge.textContent = `⚡ ${t.toFixed(1)} eff. meals`;
+
+  const sub = document.getElementById('day-sub-heading');
+  if (sub) {
+    sub.textContent = CAN_EDIT_ALL
+      ? `${MEMBERS.length} members  ·  ${t.toFixed(1)} effective meals today` +
+        (special ? `  ·  ${multiplierLabel(info)} multiplier` : '')
+      : `Your effective meals today: ${t.toFixed(1)}` +
+        (special ? `  ·  ${multiplierLabel(info)} multiplier` : '');
+  }
+}
+
+// ── PER-MEMBER DRAFT SAVE ──────────────────────────────────
+// Saves this member's currently displayed morning/lunch/dinner values
+// into the date-independent draft table. Does NOT touch MealMark and
+// does NOT affect any system meal calculation for any date.
+//
+// For a plain member, the server enforces PER SLOT which of
+// morning/lunch/dinner actually get saved (open time window AND not
+// already locked by the Manager for the selected day) — slots that
+// aren't allowed are simply left untouched server-side. The response's
+// slots_saved tells us exactly what went through, so the toast and the
+// "from draft" hint reflect reality rather than a client-side guess.
+async function saveMemberDraft(mid) {
+  const btn = document.getElementById(`memberSaveBtn_${mid}`);
+  const originalLabel = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
+
+  const morning = parseInt(document.getElementById(`inp_morning_${mid}`)?.value || 0) || 0;
+  const lunch   = parseInt(document.getElementById(`inp_lunch_${mid}`)?.value   || 0) || 0;
+  const dinner  = parseInt(document.getElementById(`inp_dinner_${mid}`)?.value  || 0) || 0;
+
+  try {
+    const data = await apiCall('/meals/save-draft/', 'POST', {
+      member_id: mid, morning, lunch, dinner,
+      selected_day: selDay, selected_month: MONTH, selected_year: YEAR,
+    });
+    DRAFT[mid] = { morning: data.morning, lunch: data.lunch, dinner: data.dinner };
+    const m = MEMBERS.find(x => x.id === mid);
+    const savedLabel = data.slots_saved && data.slots_saved.length
+      ? data.slots_saved.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' & ') + ' saved'
+      : 'Saved';
+    toast(savedLabel, `${m ? m.name : 'Member'} — M:${data.morning} L:${data.lunch} D:${data.dinner}`, 'success');
+    renderMealCards();
+    updateDraftStats();
+  } catch (e) {
+    toast('Error', e.message, 'error');
+  }
+  if (btn) { btn.disabled = false; btn.innerHTML = originalLabel; }
+}
+
+// ── DRAFT STAT CARDS ──────────────────────────────────────
+// Recomputes morning / lunch / dinner / total from the in-memory DRAFT
+// object and updates the four stat cards in the header without a page
+// reload. Called after every per-member Save Draft click.
+function updateDraftStats() {
+  let totalMorning = 0, totalLunch = 0, totalDinner = 0, membersWithDraft = 0;
+  MEMBERS.forEach(m => {
+    const d = DRAFT[m.id];
+    if (d) {
+      totalMorning += d.morning || 0;
+      totalLunch   += d.lunch   || 0;
+      totalDinner  += d.dinner  || 0;
+      if ((d.morning || 0) + (d.lunch || 0) + (d.dinner || 0) > 0) {
+        membersWithDraft++;
+      }
+    }
+  });
+  const totalAll = totalMorning + totalLunch + totalDinner;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('draft-stat-morning', Math.round(totalMorning));
+  set('draft-stat-lunch',   Math.round(totalLunch));
+  set('draft-stat-dinner',  Math.round(totalDinner));
+  set('draft-stat-total',   Math.round(totalAll));
+  set('draft-stat-member-count',
+      `${membersWithDraft} of ${MEMBERS.length} member${MEMBERS.length !== 1 ? 's' : ''} with pending draft`);
+}
+
+// ── SELF INPUT STATUS (read-only) ───────────────────────────
+// Shows a member their own per-meal-type self-input status (open now /
+// closed / disabled / confirmed by manager). The actual on/off + time
+// window controls now live on their own page — see "Allow Member Meal
+// Input" (member_input_settings_page) — Meal Mark only reads the result.
+const SLOT_META = {
+  morning: { icon: '🌅', label: 'Morning' },
+  lunch:   { icon: '🍛', label: 'Lunch' },
+  dinner:  { icon: '🌙', label: 'Dinner' },
+};
+
+function buildSelfInputStatusRow() {
+  const container = document.getElementById('self-input-status-row');
+  if (!container) return;
+  container.innerHTML = Object.keys(SLOT_META).map(slot => {
+    const meta = SLOT_META[slot];
+    const cfg = INPUT_SETTINGS[slot] || { enabled: false, open_now: false };
+    const dayInfo = DAY_TOTALS[String(selDay)] || {};
+    const lockedToday = Boolean(dayInfo[`${slot}_locked`]);
+    let stateLabel, stateColor;
+    if (lockedToday) { stateLabel = 'Confirmed by Manager'; stateColor = 'var(--t3)'; }
+    else if (cfg.open_now) { stateLabel = 'Open now'; stateColor = 'var(--green)'; }
+    else if (cfg.enabled) { stateLabel = 'Closed (outside window)'; stateColor = 'var(--t3)'; }
+    else { stateLabel = 'Disabled'; stateColor = 'var(--t3)'; }
+    return `
+      <div style="flex:1;min-width:140px;padding:10px 12px;border-radius:8px;border:1.5px solid ${(cfg.open_now && !lockedToday) ? 'var(--green)' : 'var(--bd2)'};background:var(--bg3)">
+        <div style="font-size:12px;font-weight:700">${meta.icon} ${meta.label}</div>
+        <div style="font-size:11px;color:${stateColor};margin-top:2px">${stateLabel}</div>
+      </div>`;
+  }).join('');
+}
+
+if (!CAN_EDIT_ALL) buildSelfInputStatusRow();
+
+// If this member is relying on a self-input time window, periodically
+// re-check whether it just opened or closed, and reload so the UI
+// reflects the current, correct editing permission rather than a stale
+// state from when the page was first loaded.
+{% if not can_edit_all %}
+setInterval(() => { location.reload(); }, 60000);
+{% endif %}
+
+function calcEffTotal() {
+  const info  = DAY_TOTALS[String(selDay)] || {};
+  let t = 0;
+  MEMBERS.forEach(m => {
+    const v = dayValuesFor(m.id);
+    t += effFromParts(v.morning, v.lunch, v.dinner, info);
+  });
+  return t;
+}
+
+function bulkSet(m_val, l_val, d_val) {
+  MEMBERS.forEach(m => {
+    ['morning','lunch','dinner'].forEach(type => {
+      const val = type === 'morning' ? m_val : (type === 'lunch' ? l_val : d_val);
+      const inp = document.getElementById(`inp_${type}_${m.id}`);
+      if (inp) { inp.value = val; }
+      updateVal(m.id, type, val);
+    });
+  });
+}
+
+// ── SAVE DAY (per meal-type) ────────────────────────────────
+// slots is an array like ['morning'], ['lunch'], ['dinner'], or all
+// three for "Save All Meal". Each slot can only ever be committed once
+// per day — the buttons disable themselves once locked, and the server
+// rejects it again regardless (defense in depth).
+const SLOT_BTN_IDS = { morning: 'save-morning-btn', lunch: 'save-lunch-btn', dinner: 'save-dinner-btn' };
+
+function updateSaveButtonsState() {
+  if (!CAN_EDIT_ALL) return;
+  const info = DAY_TOTALS[String(selDay)] || {};
+  const lockedMorning = Boolean(info.morning_locked);
+  const lockedLunch   = Boolean(info.lunch_locked);
+  const lockedDinner  = Boolean(info.dinner_locked);
+  const anyLocked     = lockedMorning || lockedLunch || lockedDinner;
+  const allLocked     = lockedMorning && lockedLunch && lockedDinner;
+
+  const mBtn = document.getElementById('save-morning-btn');
+  const lBtn = document.getElementById('save-lunch-btn');
+  const dBtn = document.getElementById('save-dinner-btn');
+  const aBtn = document.getElementById('save-all-btn');
+
+  if (mBtn) { mBtn.disabled = lockedMorning; mBtn.innerHTML = lockedMorning ? '✅ Morning Saved' : '🌅 Save Morning'; }
+  if (lBtn) { lBtn.disabled = lockedLunch;   lBtn.innerHTML = lockedLunch   ? '✅ Lunch Saved'   : '🍛 Save Lunch'; }
+  if (dBtn) { dBtn.disabled = lockedDinner;  dBtn.innerHTML = lockedDinner  ? '✅ Dinner Saved'  : '🌙 Save Dinner'; }
+  // "Save All Meal" commits all three together — it must be disabled the
+  // moment ANY one of the three is already locked (it can't partially
+  // re-save the others alone), and clearly marked once everything is
+  // locked (requirement 4/5: each slot, and the all-in-one action, can
+  // only ever be committed once per day).
+  if (aBtn) { aBtn.disabled = anyLocked; aBtn.innerHTML = allLocked ? '🔒 All Meal Saved' : (anyLocked ? '🔒 Save All Meal' : '💾 Save All Meal'); }
+}
+
+async function saveDay(slots) {
+  const isAll = slots.length === 3;
+  const btnId = isAll ? 'save-all-btn' : SLOT_BTN_IDS[slots[0]];
+  const btn   = document.getElementById(btnId);
+  const originalLabel = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving…'; }
+
+  const marks = {};
+  MEMBERS.forEach(m => {
+    const morning = parseInt(document.getElementById(`inp_morning_${m.id}`)?.value || 0) || 0;
+    const lunch   = parseInt(document.getElementById(`inp_lunch_${m.id}`)?.value   || 0) || 0;
+    const dinner  = parseInt(document.getElementById(`inp_dinner_${m.id}`)?.value  || 0) || 0;
+    marks[m.id] = { morning, lunch, dinner };
+  });
+
+  try {
+    const data = await apiCall('/meals/save-day/', 'POST',
+      { day: selDay, month: MONTH, year: YEAR, marks, slots });
+
+    const label = isAll
+      ? 'All Meal Saved'
+      : slots.map(s => `${s.charAt(0).toUpperCase()}${s.slice(1)} Saved`).join(' & ');
+    toast(label, data.message, 'success');
+
+    // Update DAY_TOTALS for just the slot(s) actually saved — leave the
+    // other slots' totals untouched, since they may have been committed
+    // separately (or not at all yet).
+    const info = DAY_TOTALS[String(selDay)] || {};
+    slots.forEach(s => {
+      const slotTotal = Object.values(marks).reduce((sum, v) => sum + (v[s] || 0), 0);
+      info[s] = slotTotal;
+      info[`${s}_locked`] = true;
+    });
+    info.total = (info.morning || 0) + (info.lunch || 0) + (info.dinner || 0);
+    info.eff = MEMBERS.reduce((sum, m) => {
+      const v = marks[m.id] || { morning: 0, lunch: 0, dinner: 0 };
+      return sum + effFromParts(v.morning, v.lunch, v.dinner, info);
+    }, 0);
+    DAY_TOTALS[String(selDay)] = info;
+
+    // GRID is the source of truth for "is this day committed" (used by
+    // the self-input lock and the day-chip tooltips; the full-month
+    // breakdown now lives on the separate Monthly Meal Record page) —
+    // update it for every member shown, merging in only the slot(s)
+    // just saved. Seed from localGrid (not GRID) so any OTHER member's
+    // still-pending, not-yet-saved edits in the slots NOT part of this
+    // request are preserved — otherwise clicking Save Morning would
+    // silently wipe out, say, a different member's already-typed but
+    // unsaved lunch value the moment the cards re-render.
+    MEMBERS.forEach(m => {
+      if (!GRID[m.id]) GRID[m.id] = {};
+      const pending = (localGrid[m.id] && localGrid[m.id][String(selDay)]) || {};
+      const existing = Object.assign(
+        { morning: 0, lunch: 0, dinner: 0, count: 0, eff: 0, note: '' },
+        pending
+      );
+      const v = marks[m.id] || { morning: 0, lunch: 0, dinner: 0 };
+      slots.forEach(s => { existing[s] = v[s]; });
+      existing.count = (existing.morning || 0) + (existing.lunch || 0) + (existing.dinner || 0);
+      existing.eff = effFromParts(existing.morning || 0, existing.lunch || 0, existing.dinner || 0, info);
+      GRID[m.id][String(selDay)] = existing;
+      if (!localGrid[m.id]) localGrid[m.id] = {};
+      localGrid[m.id][String(selDay)] = Object.assign({}, existing);
+    });
+
+    buildDayChips();
+    updateSaveButtonsState();
+    renderMealCards();
+  } catch (e) {
+    toast('Error', e.message, 'error');
+  }
+  if (btn && !btn.disabled) { btn.innerHTML = originalLabel; }
+  updateSaveButtonsState();
+}
+
+// ── MONTH/YEAR CHANGE ─────────────────────────────────────
+function changeMonthYear() {
+  const m = document.getElementById('sel-month').value;
+  const y = document.getElementById('sel-year').value;
+  location.href = `/meals/?month=${m}&year=${y}`;
+}
+
+// ── INIT ──────────────────────────────────────────────────
+buildDayChips();
+document.getElementById('meal-cards-grid').style.display = 'none';
+selectDay(selDay);
+</script>
+{% endblock %}

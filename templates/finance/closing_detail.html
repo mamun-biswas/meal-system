@@ -1,0 +1,393 @@
+{% extends 'base.html' %}
+{% load perm_tags %}
+{% block title %}Closing — {{ closing }}{% endblock %}
+{% block nav_closing %}active{% endblock %}
+{% block page_title %}Meal Closing{% endblock %}
+{% block page_sub %}
+  {% if closing.month == 1 %}January{% elif closing.month == 2 %}February{% elif closing.month == 3 %}March{% elif closing.month == 4 %}April{% elif closing.month == 5 %}May{% elif closing.month == 6 %}June{% elif closing.month == 7 %}July{% elif closing.month == 8 %}August{% elif closing.month == 9 %}September{% elif closing.month == 10 %}October{% elif closing.month == 11 %}November{% else %}December{% endif %}
+  {{ closing.year }} ·
+  {% if closing.status == 'closed' %}✅ Finalised{% else %}⏳ In Progress{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<style>
+.closing-scroll-table{width:100%;border-collapse:collapse}
+.closing-scroll-table th{padding:11px 16px;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--t3);background:var(--bg3);font-weight:600;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap;position:sticky;top:0;z-index:2}
+.closing-scroll-table td{padding:12px 16px;font-size:13px;color:var(--t2);border-bottom:1px solid var(--bd)}
+.closing-scroll-table tr:last-child td{border-bottom:none}
+.closing-scroll-table tr:hover td{background:var(--bg3)}
+</style>
+
+<!-- Top bar -->
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:22px;flex-wrap:wrap">
+  <a href="/finance/closing/" class="btn btn-ghost btn-sm">← All Closings</a>
+  <span style="flex:1"></span>
+  {% if closing.status == 'open' %}
+    {% if user_member.is_manager %}
+    <button class="btn btn-primary btn-sm" onclick="document.getElementById('finalise-modal').style.display='flex'">
+      🔒 Finalise Closing
+    </button>
+    {% endif %}
+  {% else %}
+    {% if user_member.is_manager %}
+    <form method="post" action="/finance/closing/{{ closing.pk }}/reopen/" style="display:inline">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-ghost btn-sm"
+              onclick="return confirm('Reopen this closing for editing?')">🔓 Reopen</button>
+    </form>
+    {% endif %}
+    <span class="badge badge-green" style="font-size:13px;padding:6px 16px">
+      ✅ Finalised {{ closing.closed_at|date:"d M Y" }} by {{ closing.closed_by.name|default:"—" }}
+    </span>
+  {% endif %}
+  {% if user_member.is_manager %}
+  <button class="btn btn-danger btn-sm" onclick="document.getElementById('delete-modal').style.display='flex'">
+    🗑 Delete
+  </button>
+  {% endif %}
+</div>
+
+<!-- Summary cards -->
+<div class="stat-grid" style="margin-bottom:22px">
+  <div class="stat-card blue">
+    <div class="stat-icon">🍽</div>
+    <div class="stat-label">Total Eff. Meals</div>
+    <div class="stat-val blue">{{ closing.total_eff }}</div>
+    <div class="stat-sub">Across all members</div>
+  </div>
+  <div class="stat-card red">
+    <div class="stat-icon">🛒</div>
+    <div class="stat-label">Total Expense</div>
+    <div class="stat-val red">৳{{ closing.total_exp }}</div>
+    <div class="stat-sub">Meal Rate: ৳{{ closing.meal_rate }}/meal</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-icon">💰</div>
+    <div class="stat-label">Total Deposit</div>
+    <div class="stat-val green">৳{{ closing.total_dep }}</div>
+  </div>
+  <div class="stat-card {% if closing.fund_balance >= 0 %}green{% else %}red{% endif %}">
+    <div class="stat-icon">{% if closing.fund_balance >= 0 %}✅{% else %}⚠️{% endif %}</div>
+    <div class="stat-label">Fund Balance</div>
+    <div class="stat-val {% if closing.fund_balance >= 0 %}green{% else %}red{% endif %}">
+      {% if closing.fund_balance >= 0 %}+{% endif %}৳{{ closing.fund_balance }}
+    </div>
+    <div class="stat-sub">Cook Cost/member: ৳{{ closing.cook_cost }}</div>
+  </div>
+</div>
+
+<!-- Progress bar -->
+{% with total=records|length %}
+<div style="background:var(--bg3);border:1px solid var(--bd);border-radius:10px;padding:14px 18px;margin-bottom:20px">
+  <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px">
+    <span class="fw-600">Settlement Progress</span>
+    <span class="text-muted" id="progress-label">calculating…</span>
+  </div>
+  <div style="background:var(--bg4);border-radius:6px;height:8px;overflow:hidden">
+    <div id="progress-bar" style="height:8px;background:var(--green);border-radius:6px;transition:width .4s;width:0%"></div>
+  </div>
+</div>
+{% endwith %}
+
+<!-- Member verdict table -->
+<div class="section-hdr" style="margin-bottom:12px">
+  <div class="section-title">👥 Member Settlement</div>
+  <div class="section-sub">
+    Green balance = member should <strong>receive</strong> money back.
+    Red balance = member still <strong>owes</strong> money.
+  </div>
+</div>
+
+<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:14px;overflow:hidden">
+  <div style="overflow-x:auto;min-height:400px;max-height:75vh;overflow-y:auto">
+  <table id="records-table" class="closing-scroll-table" style="min-width:max-content">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Member</th>
+        <th>Eff. Meals</th>
+        <th>Meal Cost</th>
+        <th>Cook Cost</th>
+        <th>Total Cost</th>
+        <th>Deposited</th>
+        <th>Balance</th>
+        <th>Action Required</th>
+        <th>Verdict</th>
+        <th>Note</th>
+        <th>By / When</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in records %}
+      <tr id="row-{{ r.pk }}" data-verdict="{{ r.verdict }}">
+        <td class="mono text-muted text-sm">{{ forloop.counter }}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:9px">
+            <div class="avatar" style="background:{{ r.member.avatar_color }};width:28px;height:28px;font-size:10px">{{ r.member.initials }}</div>
+            <div>
+              <div class="td-name">{{ r.member.name }}</div>
+              {% if r.member.room_number %}<div style="font-size:11px;color:var(--t3)">Room {{ r.member.room_number }}</div>{% endif %}
+            </div>
+          </div>
+        </td>
+        <td class="mono">{{ r.eff_meals|floatformat:1 }}</td>
+        <td class="mono">৳{{ r.meal_only_cost|floatformat:2 }}</td>
+        <td class="mono">৳{{ r.cook_cost|floatformat:0 }}</td>
+        <td class="mono fw-600" style="color:var(--red)">৳{{ r.total_cost|floatformat:2 }}</td>
+        <td class="mono fw-600" style="color:var(--green)">৳{{ r.deposit|floatformat:2 }}</td>
+        <td class="mono fw-700" style="color:{% if r.balance >= 0 %}var(--green){% else %}var(--red){% endif %}">
+          {% if r.balance >= 0 %}+{% endif %}৳{{ r.balance|floatformat:2 }}
+        </td>
+
+        <!-- Action Required -->
+        <td style="font-size:12px;font-weight:600;min-width:110px">
+          {% if r.balance > 0 %}
+            <span style="color:var(--green)">💚 Receive ৳{{ r.balance|floatformat:2 }}</span>
+          {% elif r.balance < 0 %}
+            <span style="color:var(--red)">🔴 Pay ৳{{ r.balance|floatformat:2|slice:"1:" }}</span>
+          {% else %}
+            <span style="color:var(--t2)">⚪ Settled</span>
+          {% endif %}
+        </td>
+
+        <!-- Verdict badge + controls -->
+        <td style="min-width:160px">
+          <div id="verdict-display-{{ r.pk }}">
+            {% if r.verdict == 'paid' %}
+              <span class="badge badge-blue">💳 Paid</span>
+            {% elif r.verdict == 'received' %}
+              <span class="badge badge-green">✅ Received</span>
+            {% elif r.verdict == 'settled' %}
+              <span class="badge badge-gray">⚪ Settled</span>
+            {% else %}
+              <span class="badge badge-amber">⏳ Pending</span>
+            {% endif %}
+          </div>
+          {% if closing.status == 'open' %}
+            {% if user_member.is_manager or user_member|has_perm:"monthly_close" %}
+            <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap" id="verdict-btns-{{ r.pk }}">
+              {% if r.balance < 0 %}
+                <button class="btn btn-sm" style="font-size:11px;padding:3px 9px;background:rgba(99,102,241,.15);border:1px solid var(--accent);color:var(--accent)"
+                        onclick="setVerdict({{ r.pk }}, 'paid', {{ r.balance }})">💳 Mark Paid</button>
+              {% elif r.balance > 0 %}
+                <button class="btn btn-sm" style="font-size:11px;padding:3px 9px;background:rgba(34,197,94,.1);border:1px solid var(--green);color:var(--green)"
+                        onclick="setVerdict({{ r.pk }}, 'received', {{ r.balance }})">✅ Mark Received</button>
+              {% else %}
+                <button class="btn btn-sm" style="font-size:11px;padding:3px 9px;background:var(--bg3);border:1px solid var(--bd)"
+                        onclick="setVerdict({{ r.pk }}, 'settled', 0)">⚪ Mark Settled</button>
+              {% endif %}
+              {% if r.verdict != 'pending' %}
+              <button class="btn btn-sm" style="font-size:11px;padding:3px 9px;background:var(--bg3);border:1px solid var(--bd);color:var(--t3)"
+                      onclick="setVerdict({{ r.pk }}, 'pending', {{ r.balance }})">↩ Reset</button>
+              {% endif %}
+            </div>
+            {% endif %}
+          {% endif %}
+        </td>
+
+        <!-- Note -->
+        <td class="text-muted text-sm" id="note-display-{{ r.pk }}" style="max-width:120px;word-break:break-word">
+          {{ r.verdict_note|default:"—" }}
+        </td>
+
+        <!-- By / When -->
+        <td class="text-muted text-sm">
+          <div id="by-display-{{ r.pk }}">
+            {% if r.verdict_by %}
+              <div>{{ r.verdict_by.name }}</div>
+              <div style="font-size:10px">{{ r.verdict_at|date:"d M Y H:i" }}</div>
+            {% else %}—{% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+{% if closing.note %}
+<div class="card" style="margin-top:20px;border-left:3px solid var(--accent)">
+  <div class="card-title" style="font-size:13px;margin-bottom:6px">📝 Closing Note</div>
+  <div style="color:var(--t2);font-size:13px">{{ closing.note }}</div>
+</div>
+{% endif %}
+
+<!-- Note modal (for optional note when setting verdict) -->
+<div id="note-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;align-items:center;justify-content:center">
+  <div class="card" style="width:380px;max-width:94vw;padding:24px">
+    <div class="card-title" style="margin-bottom:16px" id="modal-title">Set Verdict</div>
+    <div style="font-size:13px;color:var(--t2);margin-bottom:14px" id="modal-desc"></div>
+    <label class="form-label">Note (optional)</label>
+    <input type="text" id="modal-note" class="form-control" placeholder="e.g. paid via bKash" maxlength="300" style="margin-bottom:18px">
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('note-modal').style.display='none'">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="modal-confirm-btn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Finalise modal -->
+<div id="finalise-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;align-items:center;justify-content:center">
+  <div class="card" style="width:420px;max-width:94vw;padding:24px">
+    <div class="card-title" style="margin-bottom:10px">🔒 Finalise Closing</div>
+    <div style="font-size:13px;color:var(--t2);margin-bottom:16px">
+      Once finalised, no more verdict changes can be made. This records the official end-of-month settlement.
+    </div>
+    <form method="post" action="/finance/closing/{{ closing.pk }}/finalise/">
+      {% csrf_token %}
+      <label class="form-label">Closing Note (optional)</label>
+      <textarea name="note" class="form-control" rows="3" placeholder="Any remarks about this month's closing…" style="margin-bottom:18px;resize:vertical"></textarea>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('finalise-modal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">🔒 Yes, Finalise</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Delete modal -->
+<div id="delete-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;align-items:center;justify-content:center">
+  <div class="card" style="width:420px;max-width:94vw;padding:24px;border:1px solid var(--red)">
+    <div class="card-title" style="margin-bottom:10px;color:var(--red)">🗑 Delete Closing</div>
+    <div style="font-size:13px;color:var(--t2);margin-bottom:14px">
+      This permanently deletes the <strong>{{ closing }}</strong> closing snapshot and every member's
+      settlement record for it{% if closing.status == 'closed' %}, including the finalised verdicts{% endif %}.
+      This cannot be undone — the meal marks, deposits and expenses themselves are <strong>not</strong> affected,
+      only this closing snapshot.
+    </div>
+    <label class="form-label">Type <strong>DELETE</strong> to confirm</label>
+    <input type="text" id="delete-confirm-input" class="form-control" placeholder="DELETE" autocomplete="off" style="margin-bottom:18px">
+    <form method="post" action="/finance/closing/{{ closing.pk }}/delete/" id="delete-form">
+      {% csrf_token %}
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closeDeleteModal()">Cancel</button>
+        <button type="submit" class="btn btn-danger btn-sm" id="delete-confirm-btn" disabled>🗑 Yes, Delete Permanently</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+let _pendingRecord = null;
+let _pendingVerdict = null;
+
+function setVerdict(recordPk, verdict, balance) {
+  _pendingRecord  = recordPk;
+  _pendingVerdict = verdict;
+  const absAmt    = Math.abs(parseFloat(balance)).toFixed(2);
+  const labels    = { paid: '💳 Mark as Paid', received: '✅ Mark as Received',
+                      settled: '⚪ Mark as Settled', pending: '↩ Reset to Pending' };
+  const descs     = {
+    paid:     `Record that this member paid ৳${absAmt} owed to the mess.`,
+    received: `Record that this member received ৳${absAmt} refund from the mess.`,
+    settled:  `Mark this member as exactly settled (zero balance).`,
+    pending:  `Reset verdict back to pending.`,
+  };
+  document.getElementById('modal-title').textContent = labels[verdict] || verdict;
+  document.getElementById('modal-desc').textContent  = descs[verdict]  || '';
+  document.getElementById('modal-note').value        = '';
+  document.getElementById('note-modal').style.display = 'flex';
+}
+
+document.getElementById('modal-confirm-btn').addEventListener('click', function() {
+  const note = document.getElementById('modal-note').value.trim();
+  doVerdict(_pendingRecord, _pendingVerdict, note);
+  document.getElementById('note-modal').style.display = 'none';
+});
+
+async function doVerdict(recordPk, verdict, note) {
+  const resp = await fetch(`/finance/closing/verdict/${recordPk}/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+    body: JSON.stringify({ verdict, note }),
+  });
+  const data = await resp.json();
+  if (!data.ok) { alert('Error: ' + (data.error || 'unknown')); return; }
+
+  // Update verdict badge
+  const badges = {
+    paid:     '<span class="badge badge-blue">💳 Paid</span>',
+    received: '<span class="badge badge-green">✅ Received</span>',
+    settled:  '<span class="badge badge-gray">⚪ Settled</span>',
+    pending:  '<span class="badge badge-amber">⏳ Pending</span>',
+  };
+  document.getElementById(`verdict-display-${recordPk}`).innerHTML = badges[verdict] || '';
+
+  // Update note display
+  document.getElementById(`note-display-${recordPk}`).textContent = note || '—';
+
+  // Update by/when
+  const now = new Date();
+  const fmt  = now.toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'})
+             + ' ' + now.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'});
+  document.getElementById(`by-display-${recordPk}`).innerHTML =
+    `<div>You</div><div style="font-size:10px">${fmt}</div>`;
+
+  // Refresh reset button visibility
+  const btnsDiv = document.getElementById(`verdict-btns-${recordPk}`);
+  if (btnsDiv) {
+    const row     = document.getElementById(`row-${recordPk}`);
+    row.dataset.verdict = verdict;
+    updateResetBtn(recordPk, verdict, btnsDiv);
+  }
+  updateProgress();
+}
+
+function updateResetBtn(pk, verdict, btnsDiv) {
+  let resetBtn = btnsDiv.querySelector('.reset-btn');
+  if (verdict !== 'pending') {
+    if (!resetBtn) {
+      resetBtn = document.createElement('button');
+      resetBtn.className = 'btn btn-sm reset-btn';
+      resetBtn.style.cssText = 'font-size:11px;padding:3px 9px;background:var(--bg3);border:1px solid var(--bd);color:var(--t3)';
+      resetBtn.textContent = '↩ Reset';
+      resetBtn.onclick = () => setVerdict(pk, 'pending', 0);
+      btnsDiv.appendChild(resetBtn);
+    }
+  } else {
+    if (resetBtn) resetBtn.remove();
+  }
+}
+
+function updateProgress() {
+  const rows   = document.querySelectorAll('#records-table tbody tr');
+  const total  = rows.length;
+  let settled  = 0;
+  rows.forEach(r => { if (r.dataset.verdict !== 'pending') settled++; });
+  const pct = total ? Math.round(settled / total * 100) : 0;
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = `${settled} / ${total} settled (${pct}%)`;
+}
+
+// Init progress on load
+document.addEventListener('DOMContentLoaded', updateProgress);
+
+// Close modals on backdrop click
+['note-modal','finalise-modal','delete-modal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function(e) {
+    if (e.target === this) this.style.display = 'none';
+  });
+});
+
+// Delete closing — require typing DELETE before the button is enabled
+const deleteInput   = document.getElementById('delete-confirm-input');
+const deleteBtn     = document.getElementById('delete-confirm-btn');
+if (deleteInput && deleteBtn) {
+  deleteInput.addEventListener('input', function() {
+    deleteBtn.disabled = this.value.trim() !== 'DELETE';
+  });
+}
+
+function closeDeleteModal() {
+  document.getElementById('delete-modal').style.display = 'none';
+  if (deleteInput) deleteInput.value = '';
+  if (deleteBtn) deleteBtn.disabled = true;
+}
+</script>
+{% endblock %}

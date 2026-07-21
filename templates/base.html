@@ -1,0 +1,483 @@
+{% load perm_tags %}
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>{% block title %}{{ app_name }}{% endblock %}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root[data-theme="dark"]{
+  --bg:#0a0b0f;--bg2:#111318;--bg3:#1a1d24;--bg4:#22262f;--bg5:#2a2f3a;
+  --bd:rgba(255,255,255,.06);--bd2:rgba(255,255,255,.1);--bd3:rgba(255,255,255,.16);
+  --t:#e8eaf0;--t2:#9ca3b0;--t3:#5a6272;--t4:#3a3f4e;
+  --accent:#6366f1;--accent2:#4f52d4;--accent-soft:rgba(99,102,241,.15);
+  --green:#22c55e;--green-soft:rgba(34,197,94,.12);
+  --red:#ef4444;--red-soft:rgba(239,68,68,.12);
+  --amber:#f59e0b;--amber-soft:rgba(245,158,11,.12);
+  --blue:#3b82f6;--blue-soft:rgba(59,130,246,.12);
+  --purple:#a855f7;--purple-soft:rgba(168,85,247,.12);
+  --cyan:#06b6d4;--cyan-soft:rgba(6,182,212,.12);
+  --shadow:0 4px 32px rgba(0,0,0,.5);--shadow-sm:0 2px 8px rgba(0,0,0,.3);
+}
+:root[data-theme="light"]{
+  --bg:#f1f5f9;--bg2:#ffffff;--bg3:#f8fafc;--bg4:#f1f5f9;--bg5:#e2e8f0;
+  --bd:rgba(0,0,0,.07);--bd2:rgba(0,0,0,.12);--bd3:rgba(0,0,0,.18);
+  --t:#0f172a;--t2:#475569;--t3:#94a3b8;--t4:#cbd5e1;
+  --accent:#4f46e5;--accent2:#4338ca;--accent-soft:rgba(79,70,229,.1);
+  --green:#16a34a;--green-soft:rgba(22,163,74,.1);
+  --red:#dc2626;--red-soft:rgba(220,38,38,.1);
+  --amber:#d97706;--amber-soft:rgba(217,119,6,.1);
+  --blue:#2563eb;--blue-soft:rgba(37,99,235,.1);
+  --purple:#9333ea;--purple-soft:rgba(147,51,234,.1);
+  --cyan:#0891b2;--cyan-soft:rgba(8,145,178,.1);
+  --shadow:0 4px 16px rgba(0,0,0,.08);--shadow-sm:0 2px 6px rgba(0,0,0,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t);min-height:100vh;font-size:14px;line-height:1.6;transition:background .25s,color .25s}
+a{color:var(--accent);text-decoration:none}
+.app{display:flex;min-height:100vh}
+.sidebar{width:260px;background:var(--bg2);border-right:1px solid var(--bd);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:200;transition:transform .25s ease}
+.sb-logo{padding:20px 20px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:12px}
+.sb-logo-icon{width:38px;height:38px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;flex-shrink:0}
+.sb-logo-text{font-size:15px;font-weight:700;letter-spacing:-.3px}
+.sb-logo-sub{font-size:10px;color:var(--t3);letter-spacing:.4px;text-transform:uppercase}
+.sb-nav{padding:12px 10px;flex:1;overflow-y:auto}
+.sb-section{font-size:9px;text-transform:uppercase;letter-spacing:1.2px;color:var(--t3);padding:8px 10px 4px;font-weight:600}
+.sb-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;color:var(--t2);font-size:13px;font-weight:500;margin-bottom:1px;position:relative;transition:all .15s;text-decoration:none !important}
+.sb-item:hover{background:var(--bg3);color:var(--t)}
+.sb-item.active{background:var(--accent-soft);color:var(--accent)}
+.sb-item.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:20px;background:var(--accent);border-radius:0 3px 3px 0}
+.sb-item .ico{font-size:16px;flex-shrink:0;width:22px;text-align:center}
+.sb-badge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:20px;font-family:'JetBrains Mono',monospace}
+.sb-foot{padding:14px;border-top:1px solid var(--bd)}
+.sb-user{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:var(--bg3);cursor:pointer;transition:background .15s;text-decoration:none !important}
+.sb-user:hover{background:var(--bg4)}
+.avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;border:2px solid var(--bd2)}
+.avatar.lg{width:52px;height:52px;font-size:17px}
+.avatar.xl{width:72px;height:72px;font-size:22px}
+.sb-user-name{font-size:13px;font-weight:600;line-height:1.2;color:var(--t)}
+.sb-user-role{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px}
+.main{margin-left:260px;display:flex;flex-direction:column;min-height:100vh;min-width:0;transition:margin .25s}
+.topbar{position:sticky;top:0;z-index:100;background:rgba(10,11,15,.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--bd);padding:0 28px;height:58px;display:flex;align-items:center;justify-content:space-between}
+[data-theme="light"] .topbar{background:rgba(248,250,252,.92)}
+.topbar-left{display:flex;align-items:center;gap:14px}
+.menu-btn{width:36px;height:36px;border:1px solid var(--bd2);border-radius:8px;background:var(--bg3);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--t2);font-size:18px;transition:all .15s}
+.menu-btn:hover{background:var(--bg4);color:var(--t)}
+.topbar-title{font-size:15px;font-weight:700;letter-spacing:-.3px}
+.topbar-sub{font-size:11px;color:var(--t3)}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.icon-btn{width:36px;height:36px;border:1px solid var(--bd);border-radius:8px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--t2);font-size:16px;transition:all .15s;position:relative;text-decoration:none}
+.icon-btn:hover{background:var(--bg3);color:var(--t)}
+.notif-dot{position:absolute;top:6px;right:6px;width:8px;height:8px;background:var(--red);border-radius:50%;border:2px solid var(--bg2)}
+.content{padding:24px 28px;flex:1;min-width:0}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:var(--bg2);border:1px solid var(--bd);border-radius:14px;padding:20px;position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s}
+.stat-card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.stat-card::after{content:'';position:absolute;top:0;right:0;width:80px;height:80px;border-radius:0 14px 0 80px;opacity:.07}
+.stat-card.green::after{background:var(--green)}.stat-card.red::after{background:var(--red)}.stat-card.blue::after{background:var(--blue)}
+.stat-card.purple::after{background:var(--purple)}.stat-card.amber::after{background:var(--amber)}.stat-card.cyan::after{background:var(--cyan)}
+.stat-label{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.7px;font-weight:600;margin-bottom:10px}
+.stat-val{font-size:28px;font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:-1px;line-height:1}
+.stat-val.green{color:var(--green)}.stat-val.red{color:var(--red)}.stat-val.blue{color:var(--blue)}
+.stat-val.purple{color:var(--purple)}.stat-val.amber{color:var(--amber)}.stat-val.cyan{color:var(--cyan)}.stat-val.accent{color:var(--accent)}
+.stat-sub{font-size:11px;color:var(--t3);margin-top:6px}
+.stat-icon{position:absolute;top:16px;right:16px;font-size:22px;opacity:.5}
+.section-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.section-title{font-size:14px;font-weight:700}.section-sub{font-size:12px;color:var(--t3);margin-top:2px}
+.table-wrap{background:var(--bg2);border:1px solid var(--bd);border-radius:14px;overflow-x:auto;overflow-y:hidden}
+.table-wrap table{width:100%;border-collapse:collapse}
+.table-wrap th{padding:11px 16px;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--t3);background:var(--bg3);font-weight:600;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}
+.table-wrap td{padding:12px 16px;font-size:13px;color:var(--t2);border-bottom:1px solid var(--bd)}
+.table-wrap tr:last-child td{border-bottom:none}
+.table-wrap tr:hover td{background:var(--bg3)}
+.td-name{color:var(--t);font-weight:600}.td-mono{font-family:'JetBrains Mono',monospace;font-size:13px}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge-green{background:var(--green-soft);color:var(--green)}.badge-red{background:var(--red-soft);color:var(--red)}
+.badge-amber{background:var(--amber-soft);color:var(--amber)}.badge-blue{background:var(--blue-soft);color:var(--blue)}
+.badge-purple{background:var(--purple-soft);color:var(--purple)}.badge-cyan{background:var(--cyan-soft);color:var(--cyan)}
+.badge-gray{background:var(--bg4);color:var(--t2)}.badge-accent{background:var(--accent-soft);color:var(--accent)}
+.role-manager{background:var(--accent-soft);color:var(--accent)}
+.role-sub_manager{background:var(--purple-soft);color:var(--purple)}
+.role-member{background:var(--bg4);color:var(--t3)}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:9px;border:none;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;transition:all .15s;text-decoration:none !important;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2);transform:translateY(-1px);box-shadow:0 4px 16px rgba(99,102,241,.4)}
+.btn-ghost{background:var(--bg3);color:var(--t2);border:1px solid var(--bd2)}.btn-ghost:hover{background:var(--bg4);color:var(--t)}
+.btn-danger{background:var(--red-soft);color:var(--red);border:1px solid rgba(239,68,68,.2)}.btn-danger:hover{background:rgba(239,68,68,.2)}
+.btn-success{background:var(--green-soft);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.btn-sm{padding:6px 13px;font-size:12px;border-radius:7px}.btn-xs{padding:4px 9px;font-size:11px;border-radius:6px}
+.form-group{margin-bottom:18px}
+.form-label{display:block;font-size:12px;font-weight:600;color:var(--t2);margin-bottom:7px}
+.form-control{width:100%;padding:10px 14px;background:var(--bg3);border:1px solid var(--bd2);border-radius:9px;color:var(--t);font-family:'Inter',sans-serif;font-size:13px;outline:none;transition:border .15s,box-shadow .15s}
+.form-control:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+.form-control::placeholder{color:var(--t3)}
+select.form-control{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235a6272' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.form-hint{font-size:11px;color:var(--t3);margin-top:5px}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:500;opacity:0;pointer-events:none;transition:opacity .2s;backdrop-filter:blur(6px)}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--bg2);border:1px solid var(--bd2);border-radius:16px;width:500px;max-width:calc(100vw - 32px);box-shadow:var(--shadow);transform:scale(.94) translateY(10px);transition:transform .25s cubic-bezier(.34,1.56,.64,1);max-height:90vh;display:flex;flex-direction:column}
+.modal-overlay.open .modal{transform:scale(1) translateY(0)}
+.modal.modal-lg{width:700px}.modal.modal-xl{width:900px}
+.modal-header{padding:20px 24px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-title{font-size:16px;font-weight:700}
+.modal-close{width:30px;height:30px;border:1px solid var(--bd2);border-radius:7px;background:var(--bg3);cursor:pointer;color:var(--t2);display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .15s}
+.modal-close:hover{background:var(--red-soft);color:var(--red)}
+.modal-body{padding:22px 24px;overflow-y:auto}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--bd);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0}
+.alert{padding:12px 16px;border-radius:9px;font-size:13px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px}
+.alert-info{background:var(--blue-soft);border:1px solid rgba(59,130,246,.25);color:var(--blue)}
+.alert-success{background:var(--green-soft);border:1px solid rgba(34,197,94,.25);color:var(--green)}
+.alert-warning{background:var(--amber-soft);border:1px solid rgba(245,158,11,.25);color:var(--amber)}
+.alert-danger{background:var(--red-soft);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+#toast-container{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:var(--bg2);border:1px solid var(--bd2);border-radius:10px;padding:13px 18px;font-size:13px;min-width:260px;max-width:380px;display:flex;align-items:flex-start;gap:10px;box-shadow:var(--shadow);transform:translateX(120%);transition:transform .35s cubic-bezier(.22,1,.36,1);pointer-events:all}
+.toast.show{transform:translateX(0)}
+.toast-success{border-left:3px solid var(--green)}.toast-error{border-left:3px solid var(--red)}
+.toast-warning{border-left:3px solid var(--amber)}.toast-info{border-left:3px solid var(--blue)}
+.toast-icon{font-size:17px;flex-shrink:0}
+.toast-title{font-weight:600;font-size:13px}.toast-msg{font-size:12px;color:var(--t2);margin-top:2px}
+.toggle{position:relative;width:42px;height:24px;cursor:pointer;display:inline-block}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-track{position:absolute;inset:0;background:var(--bg5);border-radius:12px;transition:background .2s;border:1px solid var(--bd2)}
+.toggle input:checked~.toggle-track{background:var(--accent-soft);border-color:var(--accent)}
+.toggle-thumb{position:absolute;top:3px;left:3px;width:16px;height:16px;background:var(--t3);border-radius:50%;transition:transform .2s,background .2s}
+.toggle input:checked~.toggle-thumb{transform:translateX(18px);background:var(--accent)}
+.day-chips{display:flex;flex-wrap:wrap;gap:6px}
+.day-chip{padding:5px 11px;border-radius:20px;font-size:11px;cursor:pointer;background:var(--bg3);border:1px solid var(--bd);color:var(--t2);font-family:'JetBrains Mono',monospace;transition:all .12s;user-select:none;font-weight:500}
+.day-chip:hover{border-color:var(--accent);color:var(--accent)}
+.day-chip.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.day-chip.has-data{background:var(--blue-soft);border-color:var(--blue);color:var(--blue)}
+.day-chip.active{background:var(--accent-soft) !important;border-color:var(--accent) !important;color:var(--accent) !important}
+.day-chip.special{background:var(--amber-soft);border-color:var(--amber);color:var(--amber)}
+.meal-member-card{background:var(--bg3);border:1px solid var(--bd);border-radius:10px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;transition:all .15s}
+.meal-member-card:hover{border-color:var(--bd2)}
+.meal-member-card.has-meals{border-color:var(--accent);background:var(--accent-soft)}
+.meal-count-input{width:64px;padding:7px 10px;background:var(--bg4);border:1px solid var(--bd2);border-radius:7px;color:var(--t);font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600;text-align:center;outline:none;transition:border .15s}
+.meal-count-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+.meal-eff-badge{font-size:10px;color:var(--t3);margin-top:3px;font-family:'JetBrains Mono',monospace}
+.progress{height:5px;background:var(--bg4);border-radius:3px;overflow:hidden;margin-top:8px}
+.progress-bar{height:100%;border-radius:3px;transition:width .6s ease;background:var(--accent)}
+.progress-bar.green{background:var(--green)}.progress-bar.red{background:var(--red)}.progress-bar.amber{background:var(--amber)}
+.card{background:var(--bg2);border:1px solid var(--bd);border-radius:14px;padding:20px}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.card-title{font-size:13px;font-weight:700}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.pagination{display:flex;gap:6px;align-items:center;justify-content:center;margin-top:20px}
+.page-btn{width:32px;height:32px;border:1px solid var(--bd2);border-radius:7px;background:var(--bg3);color:var(--t2);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;text-decoration:none}
+.page-btn:hover,.page-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.search-bar{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--bd2);border-radius:9px;padding:0 12px;transition:border .15s}
+.search-bar:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(99,102,241,.1)}
+.search-bar input{flex:1;background:transparent;border:none;color:var(--t);font-size:13px;outline:none;padding:9px 0;font-family:'Inter',sans-serif}
+.search-bar input::placeholder{color:var(--t3)}
+.empty-state{text-align:center;padding:60px 24px;color:var(--t3)}
+.empty-icon{font-size:48px;margin-bottom:16px;opacity:.4}
+.empty-title{font-size:15px;font-weight:600;color:var(--t2);margin-bottom:6px}
+.empty-sub{font-size:13px}
+hr.divider{border:none;border-top:1px solid var(--bd);margin:16px 0}
+.mono{font-family:'JetBrains Mono',monospace}
+.text-muted{color:var(--t3)}.text-sm{font-size:12px}.text-xs{font-size:11px}
+.fw-600{font-weight:600}.fw-700{font-weight:700}
+.mt-2{margin-top:8px}.mt-3{margin-top:12px}.mt-4{margin-top:16px}
+.mb-2{margin-bottom:8px}.mb-3{margin-bottom:12px}.mb-4{margin-bottom:16px}
+.spinner{width:18px;height:18px;border:2px solid var(--bd2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ann-low{border-left:3px solid var(--t3)}.ann-normal{border-left:3px solid var(--blue)}.ann-high{border-left:3px solid var(--amber)}.ann-urgent{border-left:3px solid var(--red)}
+@media print{.sidebar,.topbar,#toast-container,.btn,.modal-overlay{display:none!important}.main{margin-left:0!important}.content{padding:0!important}}
+@media(max-width:1200px){.stat-grid{grid-template-columns:1fr 1fr 1fr 1fr}}
+@media(max-width:1024px){.stat-grid{grid-template-columns:1fr 1fr}}
+.sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:190;opacity:0;transition:opacity .2s}
+.sidebar-backdrop.show{display:block;opacity:1}
+.signout-label{display:inline}
+@media(max-width:768px){
+  .sidebar{transform:translateX(-260px)}.sidebar.mobile-open{transform:translateX(0)}
+  .main{margin-left:0!important}.stat-grid{grid-template-columns:1fr 1fr}
+  .grid-2,.grid-3{grid-template-columns:1fr}.form-row,.form-row-3{grid-template-columns:1fr}
+  .content{padding:16px}
+  /* Topbar: allow wrapping instead of overflowing off-screen, and give
+     the title room to breathe by truncating it instead of pushing the
+     right-hand controls out of view. */
+  .topbar{padding:10px 14px;height:auto;min-height:56px;flex-wrap:wrap;row-gap:8px}
+  .topbar-left{min-width:0;flex:1}
+  .topbar-title{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .topbar-sub{display:none}
+  .topbar-right{gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  /* Ad-hoc grids built with an inline auto-fill/minmax(...) — force a
+     single column on mobile so their minimum column width can never
+     force the page wider than the viewport. */
+  #meal-cards-grid{grid-template-columns:1fr!important}
+}
+@media(max-width:480px){
+  body{font-size:13px}
+  .content{padding:12px}
+  .topbar{padding:8px 12px}
+  .topbar-title{font-size:13px;max-width:170px}
+  .menu-btn,.icon-btn{width:32px;height:32px;font-size:15px}
+  .signout-label{display:none}
+  .stat-grid{grid-template-columns:1fr!important}
+  .stat-card{padding:14px}
+  .stat-val{font-size:22px}
+  .stat-icon{font-size:18px;top:12px;right:12px}
+  .card{padding:14px}
+  .modal{width:100%!important}
+  .modal.modal-lg,.modal.modal-xl{width:100%!important}
+  .modal-header{padding:16px 18px 12px}
+  .modal-body{padding:16px 18px}
+  .modal-footer{padding:12px 18px;flex-wrap:wrap}
+  .btn{padding:8px 14px;font-size:12px}
+  .btn-sm{padding:6px 11px;font-size:11.5px}
+  .table-wrap th{padding:9px 12px;font-size:10px}
+  .table-wrap td{padding:10px 12px;font-size:12px}
+  .avatar{width:30px;height:30px;font-size:11px}
+  .avatar.lg{width:44px;height:44px;font-size:15px}
+  .avatar.xl{width:60px;height:60px;font-size:19px}
+  .meal-member-card{padding:12px}
+  .meal-count-input{width:56px;font-size:13px}
+  /* Any other page-specific grid built inline with auto-fill/minmax —
+     collapse to one column so nothing can force horizontal scrolling
+     on very small phones. */
+  #meal-cards-grid{grid-template-columns:1fr!important}
+}
+*{scrollbar-width:auto;scrollbar-color:var(--bg5) transparent}
+::-webkit-scrollbar{width:12px;height:12px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:6px}
+::-webkit-scrollbar-thumb:hover{background:var(--bd3)}
+/* ── Date / time input — custom calendar icon (dark + light mode) ─────────── */
+/* Tell browser to use dark color-scheme so the popup calendar is also dark */
+input[type="date"],input[type="datetime-local"],input[type="time"],input[type="month"],input[type="week"]{color-scheme:dark}
+[data-theme="light"] input[type="date"],[data-theme="light"] input[type="datetime-local"],[data-theme="light"] input[type="time"],[data-theme="light"] input[type="month"],[data-theme="light"] input[type="week"]{color-scheme:light}
+/* Hide the native browser icon — it is invisible in dark mode */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator,
+input[type="week"]::-webkit-calendar-picker-indicator{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23a0a8b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
+  background-size:18px 18px;
+  background-repeat:no-repeat;
+  background-position:center;
+  width:24px;height:24px;
+  opacity:1;cursor:pointer;
+  border-radius:4px;padding:0;
+  transition:background-image .15s
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+input[type="month"]::-webkit-calendar-picker-indicator:hover,
+input[type="week"]::-webkit-calendar-picker-indicator:hover{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E")
+}
+/* Light mode — slightly darker stroke so it's visible on white */
+[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator,
+[data-theme="light"] input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+[data-theme="light"] input[type="month"]::-webkit-calendar-picker-indicator,
+[data-theme="light"] input[type="week"]::-webkit-calendar-picker-indicator{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E")
+}
+[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator:hover,
+[data-theme="light"] input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+[data-theme="light"] input[type="month"]::-webkit-calendar-picker-indicator:hover,
+[data-theme="light"] input[type="week"]::-webkit-calendar-picker-indicator:hover{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%234f46e5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E")
+}
+</style>
+</head>
+<body>
+{% if user.is_authenticated %}
+<div class="app">
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar()"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-icon">🍽</div>
+      <div><div class="sb-logo-text">{{ mess.name|default:app_name }}</div><div class="sb-logo-sub">{{ app_name }}{% if mess %} · ID: {{ mess.code }}{% endif %}</div></div>
+    </div>
+    <nav class="sb-nav" id="sbNav">
+      <div class="sb-section">Overview</div>
+      <a href="/" class="sb-item {% block nav_dashboard %}{% endblock %}"><span class="ico">📊</span>Dashboard</a>
+      <a href="/my-statement/" class="sb-item {% block nav_my_statement %}{% endblock %}" style="background:linear-gradient(90deg,var(--accent-soft),transparent);border-left:2px solid var(--accent);margin-bottom:4px"><span class="ico">🧾</span><span>My Statement</span></a>
+      {% if user_member.is_manager or user_member|has_perm:"manage_members" %}
+      <div class="sb-section">Members</div>
+      <a href="/members/" class="sb-item {% block nav_members %}{% endblock %}"><span class="ico">👥</span>Members</a>
+      {% endif %}
+      <div class="sb-section">Meals</div>
+      <a href="/meals/" class="sb-item {% block nav_meals %}{% endblock %}"><span class="ico">✅</span>Meal Mark</a>
+      <a href="/meals/monthly-record/" class="sb-item {% block nav_monthly_record %}{% endblock %}"><span class="ico">📊</span>Monthly Meal Record</a>
+      {% if user_member.is_manager or user_member|has_perm:"meal_mark" %}
+      <a href="/meals/update-history/" class="sb-item {% block nav_update_history %}{% endblock %}"><span class="ico">✏️</span>Update Meal History</a>
+      {% endif %}
+      {% if user_member.is_manager or user_member|has_perm:"day_config" %}
+      <a href="/meals/day-config/" class="sb-item {% block nav_dayconfig %}{% endblock %}"><span class="ico">⚙️</span>Special Meal Entry</a>
+      {% endif %}
+      {% if user_member.is_manager or user_member|has_perm:"member_input_control" %}
+      <a href="/meals/member-input/" class="sb-item {% block nav_member_input %}{% endblock %}"><span class="ico">🕒</span>Allow Member Meal Input</a>
+      {% endif %}
+      <a href="/meals/announcements/" class="sb-item {% block nav_ann %}{% endblock %}"><span class="ico">📢</span>Announcements</a>
+      <div class="sb-section">Finance</div>
+      <a href="/finance/deposits/" class="sb-item {% block nav_deposits %}{% endblock %}"><span class="ico">💰</span>Deposits</a>
+      <a href="/finance/expenses/" class="sb-item {% block nav_expenses %}{% endblock %}"><span class="ico">🛒</span>Expenses</a>
+      {% if user_member.is_manager or user_member|has_perm:"view_reports" %}
+      <div class="sb-section">Reports</div>
+      <a href="/reports/monthly/" class="sb-item {% block nav_rmonthly %}{% endblock %}"><span class="ico">📋</span>Monthly Report</a>
+      <a href="/finance/closing/" class="sb-item {% block nav_closing %}{% endblock %}"><span class="ico">🔒</span>Meal Closing</a>
+      <a href="/reports/daily/" class="sb-item {% block nav_rdaily %}{% endblock %}"><span class="ico">📅</span>Daily Report</a>
+      <a href="/reports/analytics/" class="sb-item {% block nav_analytics %}{% endblock %}"><span class="ico">📈</span>Analytics</a>
+      {% endif %}
+      {% if user_member.is_manager or user_member.is_sub_manager %}
+      <div class="sb-section">System</div>
+      {% if user_member.is_manager %}
+      <a href="/meals/settings/" class="sb-item {% block nav_settings %}{% endblock %}"><span class="ico">🔧</span>Settings</a>
+      {% endif %}
+      <a href="/activity-log/" class="sb-item {% block nav_log %}{% endblock %}"><span class="ico">📜</span>Activity Log</a>
+      {% endif %}
+    </nav>
+    <script>
+    // Restore the sidebar's scroll position as early as possible (right
+    // after the nav markup is parsed) so a full page reload — clicking
+    // Settings/Activity Log near the bottom of the list — doesn't snap
+    // the sidebar back to the top before the user sees the active item.
+    (function(){
+      var nav = document.getElementById('sbNav');
+      if(!nav) return;
+      var saved = sessionStorage.getItem('sbNavScroll');
+      if(saved !== null){
+        nav.scrollTop = parseInt(saved, 10) || 0;
+      } else {
+        var active = nav.querySelector('.sb-item.active');
+        if(active) active.scrollIntoView({block:'center'});
+      }
+    })();
+    </script>
+    <div class="sb-foot">
+      <!-- Active Month Indicator -->
+      <a href="/meals/settings/" style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--accent-soft);border:1px solid var(--accent);border-radius:9px;margin-bottom:10px;text-decoration:none;transition:background .15s" onmouseover="this.style.background='rgba(99,102,241,.22)'" onmouseout="this.style.background='var(--accent-soft)'">
+        <span style="font-size:16px">📅</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:var(--accent);font-weight:700">Active Month</div>
+          <div style="font-size:13px;font-weight:700;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ active_month_name }} {{ active_year }}</div>
+        </div>
+        <span style="font-size:11px;color:var(--accent)">⚙</span>
+      </a>
+      <!-- User Profile -->
+      <a href="/profile/" class="sb-user">
+        <div class="avatar" style="background:{{ user_member.avatar_color }}">{{ user_member.initials }}</div>
+        <div><div class="sb-user-name">{{ user_member.name }}</div><div class="sb-user-role">{{ user_member.get_role_display }}</div></div>
+      </a>
+    </div>
+  </aside>
+  <main class="main" id="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+        <div><div class="topbar-title">{% block page_title %}Dashboard{% endblock %}</div><div class="topbar-sub">{% block page_sub %}{% endblock %}</div></div>
+      </div>
+      <div class="topbar-right">
+        <button class="icon-btn" onclick="toggleTheme()" id="theme-btn" title="Toggle theme">🌙</button>
+        <!-- Active Month Quick Switcher -->
+        {% if user_member.is_manager %}
+        <div style="position:relative" id="month-switcher-wrap">
+          <button class="btn btn-ghost btn-sm" onclick="toggleMonthSwitcher()" id="month-switcher-btn"
+            style="font-family:'JetBrains Mono',monospace;font-size:12px;gap:6px;padding:6px 12px">
+            📅 {{ active_month_name|slice:":3" }} {{ active_year }} <span style="font-size:10px;opacity:.6">▼</span>
+          </button>
+          <div id="month-switcher-panel" style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--bg2);border:1px solid var(--bd2);border-radius:12px;padding:16px;box-shadow:var(--shadow);z-index:300;min-width:260px">
+            <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">Switch Active Month</div>
+            <form method="post" action="/meals/settings/">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="set_active">
+              <div style="display:flex;gap:8px;margin-bottom:10px">
+                <select name="new_month" id="tb-month" class="form-control" style="flex:1">
+                  {% for i in "123456789" %}{% endfor %}
+                  <option value="1"{% if active_month == 1 %} selected{% endif %}>January</option>
+                  <option value="2"{% if active_month == 2 %} selected{% endif %}>February</option>
+                  <option value="3"{% if active_month == 3 %} selected{% endif %}>March</option>
+                  <option value="4"{% if active_month == 4 %} selected{% endif %}>April</option>
+                  <option value="5"{% if active_month == 5 %} selected{% endif %}>May</option>
+                  <option value="6"{% if active_month == 6 %} selected{% endif %}>June</option>
+                  <option value="7"{% if active_month == 7 %} selected{% endif %}>July</option>
+                  <option value="8"{% if active_month == 8 %} selected{% endif %}>August</option>
+                  <option value="9"{% if active_month == 9 %} selected{% endif %}>September</option>
+                  <option value="10"{% if active_month == 10 %} selected{% endif %}>October</option>
+                  <option value="11"{% if active_month == 11 %} selected{% endif %}>November</option>
+                  <option value="12"{% if active_month == 12 %} selected{% endif %}>December</option>
+                </select>
+                <select name="new_year" id="tb-year" class="form-control" style="width:84px">
+                  <option value="{{ active_year|add:'-1' }}">{{ active_year|add:'-1' }}</option>
+                  <option value="{{ active_year }}" selected>{{ active_year }}</option>
+                  <option value="{{ active_year|add:'1' }}">{{ active_year|add:'1' }}</option>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;font-size:13px">
+                🔄 Apply to All Pages
+              </button>
+            </form>
+            <a href="/meals/settings/" style="display:block;text-align:center;font-size:12px;color:var(--t3);margin-top:10px;text-decoration:none" onclick="toggleMonthSwitcher()">⚙ Full Settings →</a>
+          </div>
+        </div>
+        {% endif %}
+        <a href="/notifications/" class="icon-btn" title="Notifications">🔔{% if notif_count > 0 %}<span class="notif-dot"></span>{% endif %}</a>
+        <a href="/logout/" class="btn btn-ghost btn-sm" title="Sign Out">🚪<span class="signout-label">&nbsp;Sign Out</span></a>
+      </div>
+    </div>
+    <div class="content">
+      {% if unread_admin_messages %}
+      {% for am in unread_admin_messages %}
+      <div class="alert alert-warning" style="margin-bottom:16px;align-items:center">
+        <span>📢</span>
+        <span style="flex:1"><b>Message from Admin:</b> {{ am.message }}</span>
+        <form method="post" action="{% url 'mark_admin_message_read' am.pk %}" style="margin:0">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.path }}">
+          <button type="submit" class="btn btn-ghost btn-xs">Dismiss</button>
+        </form>
+      </div>
+      {% endfor %}
+      {% endif %}
+      {% if messages %}{% for msg in messages %}
+      <div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}{{ msg.tags|default:'info' }}{% endif %}" style="margin-bottom:16px">
+        <span>{% if msg.tags == 'success' %}✅{% elif msg.tags == 'error' %}❌{% else %}ℹ️{% endif %}</span><span>{{ msg }}</span>
+      </div>{% endfor %}{% endif %}
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</div>
+{% else %}{% block auth_content %}{% endblock %}{% endif %}
+<div id="toast-container"></div>
+<script>
+(function(){const t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t);const b=document.getElementById('theme-btn');if(b)b.textContent=t==='dark'?'🌙':'☀️';})();
+function toggleTheme(){const c=document.documentElement.getAttribute('data-theme'),n=c==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);localStorage.setItem('theme',n);const b=document.getElementById('theme-btn');if(b)b.textContent=n==='dark'?'🌙':'☀️';}
+function toggleSidebar(){const s=document.getElementById('sidebar'),m=document.getElementById('main'),bd=document.getElementById('sidebarBackdrop');if(window.innerWidth<=768){s.classList.toggle('mobile-open');if(bd)bd.classList.toggle('show',s.classList.contains('mobile-open'));document.body.style.overflow=s.classList.contains('mobile-open')?'hidden':'';}else{s.classList.toggle('collapsed');if(s.classList.contains('collapsed')){m.style.marginLeft='0';}else{m.style.marginLeft='260px';}}}
+function getCsrf(){return document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('csrftoken='))?.split('=')[1]||'';}
+async function apiCall(url,method='GET',body=null){const o={method,headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()}};if(body)o.body=JSON.stringify(body);const r=await fetch(url,o);const d=await r.json();if(!r.ok)throw new Error(d.error||'Request failed');return d;}
+function toast(title,msg,type='success'){const icons={success:'✅',error:'❌',warning:'⚠️',info:'ℹ️'};const c=document.getElementById('toast-container');const t=document.createElement('div');t.className=`toast toast-${type}`;t.innerHTML=`<span class="toast-icon">${icons[type]||'ℹ️'}</span><div><div class="toast-title">${title}</div>${msg?`<div class="toast-msg">${msg}</div>`:''}</div>`;c.appendChild(t);requestAnimationFrame(()=>requestAnimationFrame(()=>t.classList.add('show')));setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.remove(),400);},4000);}
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function toggleMonthSwitcher(){const p=document.getElementById('month-switcher-panel');if(p)p.style.display=p.style.display==='none'?'block':'none';}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    document.querySelectorAll('.modal-overlay.open').forEach(m=>m.classList.remove('open'));
+    const p=document.getElementById('month-switcher-panel');if(p)p.style.display='none';
+  }
+});
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
+  document.addEventListener('click',e=>{
+    const wrap=document.getElementById('month-switcher-wrap');
+    if(wrap&&!wrap.contains(e.target)){const p=document.getElementById('month-switcher-panel');if(p)p.style.display='none';}
+  });
+  // Keep the sidebar scrolled to wherever the user left it (e.g. down
+  // near Settings / Activity Log) across full page navigations.
+  const sbNav=document.getElementById('sbNav');
+  if(sbNav){
+    const saveScroll=()=>sessionStorage.setItem('sbNavScroll',sbNav.scrollTop);
+    sbNav.addEventListener('scroll',saveScroll,{passive:true});
+    window.addEventListener('pagehide',saveScroll);
+    window.addEventListener('beforeunload',saveScroll);
+  }
+});
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

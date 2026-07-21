@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% load perm_tags %}
+{% block title %}Analytics{% endblock %}
+{% block nav_analytics %}active{% endblock %}
+{% block page_title %}Analytics{% endblock %}
+{% block page_sub %}12-month trends, category breakdown and top depositors{% endblock %}
+{% block content %}
+
+<!-- TOP STATS (this year) -->
+<div class="grid-2" style="margin-bottom:24px">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">📈 12-Month Trend</div>
+    </div>
+    <canvas id="trendChart" height="200"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">🗂 Expense by Category (This Year)</div>
+    </div>
+    <canvas id="catChart" height="200"></canvas>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">🏆 Top Depositors — This Year</div>
+  </div>
+  {% if top_depositors %}
+  <div class="table-wrap" style="border:none">
+    <table>
+      <thead><tr><th>#</th><th>Member</th><th>Total Deposited</th><th style="min-width:200px">Contribution</th></tr></thead>
+      <tbody>
+        {% for d in top_depositors %}
+        <tr>
+          <td class="mono text-muted" style="font-size:12px">{{ forloop.counter }}</td>
+          <td class="td-name">{{ d.member__name }}</td>
+          <td class="mono fw-700" style="color:var(--green)">৳{{ d.t|floatformat:0 }}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div class="progress" style="flex:1;margin:0">
+                <div class="progress-bar green" style="width:{% widthratio d.t top_depositors.0.t 100 %}%"></div>
+              </div>
+              <span class="mono text-xs text-muted">{% widthratio d.t top_depositors.0.t 100 %}%</span>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding:40px">
+    <div class="empty-icon">💰</div>
+    <div class="empty-sub">No deposit data yet</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+const trend     = {{ trend_json|safe }};
+const catLabels = {{ cat_labels|safe }};
+const catVals   = {{ cat_vals|safe }};
+const isDark    = document.documentElement.getAttribute('data-theme') === 'dark';
+const gc  = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
+const tc  = isDark ? '#5a6272' : '#94a3b8';
+const colors = ['#6366f1','#ef4444','#f59e0b','#22c55e','#3b82f6','#a855f7','#06b6d4','#ec4899','#84cc16','#f97316'];
+
+new Chart(document.getElementById('trendChart'), {
+  type: 'line',
+  data: {
+    labels: trend.map(t => t.label),
+    datasets: [
+      { label: 'Effective Meals', data: trend.map(t => t.eff),
+        borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,.08)',
+        tension: .4, fill: true, pointRadius: 3 },
+      { label: 'Expense ÷100', data: trend.map(t => +(t.exp/100).toFixed(0)),
+        borderColor: '#ef4444', backgroundColor: 'transparent',
+        tension: .4, fill: false, pointRadius: 3, borderDash: [5,3] },
+      { label: 'Deposit ÷100', data: trend.map(t => +(t.dep/100).toFixed(0)),
+        borderColor: '#22c55e', backgroundColor: 'transparent',
+        tension: .4, fill: false, pointRadius: 3, borderDash: [5,3] },
+    ]
+  },
+  options: {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { labels: { color: tc, font: { size: 11 } } } },
+    scales: {
+      x: { grid: { color: gc }, ticks: { color: tc, font: { size: 10 } } },
+      y: { grid: { color: gc }, ticks: { color: tc, font: { size: 10 } } },
+    }
+  }
+});
+
+if (catLabels.length > 0) {
+  new Chart(document.getElementById('catChart'), {
+    type: 'doughnut',
+    data: {
+      labels: catLabels,
+      datasets: [{
+        data: catVals,
+        backgroundColor: colors,
+        borderWidth: 0,
+        hoverOffset: 10,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: { color: tc, font: { size: 11 }, padding: 14 }
+        }
+      }
+    }
+  });
+} else {
+  document.getElementById('catChart').parentElement.innerHTML +=
+    '<div class="empty-state" style="padding:40px"><div class="empty-icon">🗂</div><div class="empty-sub">No expense data yet</div></div>';
+  document.getElementById('catChart').remove();
+}
+</script>
+{% endblock %}

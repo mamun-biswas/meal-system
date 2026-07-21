@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% load perm_tags %}
+{% block title %}Announcements{% endblock %}
+{% block nav_ann %}active{% endblock %}
+{% block page_title %}Announcements{% endblock %}
+{% block page_sub %}Board notices and messages for all members{% endblock %}
+{% block content %}
+{% if can_post %}
+<div style="text-align:right;margin-bottom:20px">
+  <button class="btn btn-primary" onclick="openModal('modal-post')">📢 Post Announcement</button>
+</div>
+{% endif %}
+
+{% for ann in announcements %}
+<div class="card ann-{{ ann.priority }}" style="margin-bottom:12px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+    <div style="flex:1">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+        <span style="font-size:17px;font-weight:700">{{ ann.title }}</span>
+        <span class="badge
+          {% if ann.priority == 'urgent' %}badge-red
+          {% elif ann.priority == 'high' %}badge-amber
+          {% elif ann.priority == 'normal' %}badge-blue
+          {% else %}badge-gray{% endif %}">
+          {% if ann.priority == 'urgent' %}🚨{% elif ann.priority == 'high' %}⚠️{% else %}ℹ️{% endif %}
+          {{ ann.get_priority_display }}
+        </span>
+      </div>
+      <p style="color:var(--t2);font-size:13px;line-height:1.7;white-space:pre-wrap">{{ ann.body }}</p>
+      <div style="font-size:11px;color:var(--t3);margin-top:10px">
+        📌 Posted by <strong>{{ ann.posted_by.name|default:"Manager" }}</strong> · {{ ann.created_at|timesince }} ago
+      </div>
+    </div>
+    {% if can_post %}
+    <button class="btn btn-danger btn-xs" style="flex-shrink:0" onclick="deleteAnn({{ ann.pk }}, this)">Remove</button>
+    {% endif %}
+  </div>
+</div>
+{% empty %}
+<div class="empty-state">
+  <div class="empty-icon">📭</div>
+  <div class="empty-title">No announcements</div>
+  <div class="empty-sub">Nothing posted yet</div>
+</div>
+{% endfor %}
+
+{% if can_post %}
+<div class="modal-overlay" id="modal-post">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">📢 Post Announcement</div>
+      <button class="modal-close" onclick="closeModal('modal-post')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Title *</label>
+        <input id="ann-title" class="form-control" placeholder="Announcement title">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Message *</label>
+        <textarea id="ann-body" class="form-control" rows="5" placeholder="Write your announcement..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Priority</label>
+        <select id="ann-priority" class="form-control">
+          <option value="low">🔵 Low</option>
+          <option value="normal" selected>ℹ️ Normal</option>
+          <option value="high">⚠️ High</option>
+          <option value="urgent">🚨 Urgent</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-post')">Cancel</button>
+      <button class="btn btn-primary" id="post-btn" onclick="postAnn()">📢 Post to All Members</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+{% block extra_js %}
+<script>
+async function postAnn() {
+  const title = document.getElementById('ann-title').value.trim();
+  const body  = document.getElementById('ann-body').value.trim();
+  const prio  = document.getElementById('ann-priority').value;
+  if (!title) { toast('Error','Title is required','error'); return; }
+  if (!body)  { toast('Error','Message is required','error'); return; }
+  const btn = document.getElementById('post-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    await apiCall('/meals/announcements/save/', 'POST', { title, body, priority: prio });
+    toast('Posted!', 'Announcement sent to all members', 'success');
+    closeModal('modal-post');
+    setTimeout(() => location.reload(), 900);
+  } catch(e) { toast('Error', e.message, 'error'); }
+  btn.disabled = false; btn.innerHTML = '📢 Post to All Members';
+}
+async function deleteAnn(pk, btn) {
+  if (!confirm('Remove this announcement?')) return;
+  try {
+    await apiCall(`/meals/announcements/${pk}/delete/`, 'DELETE');
+    const card = btn.closest('.card');
+    if (card) { card.style.opacity = '.3'; setTimeout(() => card.remove(), 300); }
+    toast('Removed', 'Announcement deleted', 'success');
+  } catch(e) { toast('Error', e.message, 'error'); }
+}
+</script>
+{% endblock %}

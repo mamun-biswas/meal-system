@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+.pending-root{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:24px}
+.pending-card{width:100%;max-width:520px;background:var(--bg2);border:1px solid var(--bd);border-radius:18px;padding:40px 36px;text-align:center}
+.pending-icon{width:76px;height:76px;background:linear-gradient(135deg,#F59E0B,#D97706);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 22px;box-shadow:0 8px 32px rgba(245,158,11,.35)}
+.pending-title{font-size:22px;font-weight:800;letter-spacing:-.4px;margin-bottom:10px}
+.pending-msg{color:var(--t3);font-size:14px;line-height:1.7;margin-bottom:24px}
+.pending-meta{background:var(--bg3);border:1px solid var(--bd);border-radius:12px;padding:16px 18px;text-align:left;margin-bottom:24px;font-size:13px}
+.pending-meta div{display:flex;justify-content:space-between;padding:5px 0}
+.pending-meta span:first-child{color:var(--t3)}
+.pending-meta span:last-child{font-weight:600}
+.admin-msg{background:var(--bg3);border-left:3px solid var(--accent);border-radius:8px;padding:12px 14px;text-align:left;margin-bottom:12px;font-size:13px}
+.admin-msg .when{font-size:11px;color:var(--t3);margin-top:6px}
+</style>
+
+<div class="pending-root">
+  <div class="pending-card">
+    <div class="pending-icon">⏳</div>
+    <div class="pending-title">Waiting for Admin Approval</div>
+    <div class="pending-msg">
+      After Admin Approval You Can Use Your Created Mess.<br>
+      This usually doesn't take long — check back soon.
+    </div>
+
+    <div class="pending-meta">
+      <div><span>Mess Name</span><span>{{ mess.name }}</span></div>
+      <div><span>Mess ID</span><span>{{ mess.code }}</span></div>
+      <div><span>Status</span><span style="color:#F59E0B">Pending Approval</span></div>
+    </div>
+
+    <a href="{% url 'logout' %}" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:8px">Sign Out</a>
+  </div>
+</div>
+{% endblock %}

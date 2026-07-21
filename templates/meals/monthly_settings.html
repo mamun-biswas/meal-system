@@ -1,0 +1,284 @@
+{% extends 'base.html' %}
+{% load perm_tags %}
+{% block title %}Settings — {{ month_name }} {{ year }}{% endblock %}
+{% block nav_settings %}active{% endblock %}
+{% block page_title %}Monthly Settings{% endblock %}
+{% block page_sub %}Active month: {{ active_month_name }} {{ active_year }}{% endblock %}
+
+{% block content %}
+
+<!-- ── ACTIVE MONTH BANNER ─────────────────────────────────── -->
+<div id="active-month-banner" style="
+    background: linear-gradient(135deg, var(--accent-soft), rgba(99,102,241,.05));
+    border: 1.5px solid var(--accent);
+    border-radius: 14px;
+    padding: 18px 22px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+">
+  <div style="display:flex;align-items:center;gap:14px">
+    <div style="font-size:32px">📅</div>
+    <div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--accent);font-weight:700;margin-bottom:4px">
+        Global Active Month
+      </div>
+      <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">
+        {{ active_month_name }} {{ active_year }}
+      </div>
+      <div style="font-size:12px;color:var(--t3);margin-top:3px">
+        All pages — dashboard, meals, deposits, expenses, reports — show data for this month
+      </div>
+    </div>
+  </div>
+  {% if is_current_active %}
+  <span class="badge badge-green" style="font-size:13px;padding:7px 16px">✓ Currently Viewing</span>
+  {% else %}
+  <a href="/meals/settings/?month={{ active_month }}&year={{ active_year }}" class="btn btn-ghost btn-sm">
+    Go to Active Month →
+  </a>
+  {% endif %}
+</div>
+
+
+<!-- ── CHANGE ACTIVE MONTH ─────────────────────────────────── -->
+<div class="grid-2" style="margin-bottom:24px;align-items:start">
+
+  <!-- LEFT: Change Active Month -->
+  <div class="card" style="border:1.5px solid var(--accent)">
+    <div class="card-header" style="margin-bottom:0">
+      <div>
+        <div class="card-title" style="font-size:15px">🔄 Change Active Month</div>
+        <div style="font-size:12px;color:var(--t3);margin-top:3px">
+          Switches the global month for the entire app
+        </div>
+      </div>
+    </div>
+    <hr class="divider">
+    <form method="post" id="set-active-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="set_active">
+      <div class="form-row" style="margin-bottom:16px">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Month</label>
+          <select name="new_month" id="new-month" class="form-control" onchange="updatePreview()">
+            {% for mn,mname in months %}
+            <option value="{{ mn }}"{% if mn == active_month %} selected{% endif %}>{{ mname }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Year</label>
+          <select name="new_year" id="new-year" class="form-control" onchange="updatePreview()">
+            {% for y in years %}
+            <option value="{{ y }}"{% if y == active_year %} selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Preview pill -->
+      <div id="preview-pill" style="
+          background:var(--bg3);border:1px solid var(--bd2);border-radius:9px;
+          padding:12px 16px;margin-bottom:16px;
+          display:flex;align-items:center;gap:10px;font-size:13px
+      ">
+        <span style="font-size:18px">👁</span>
+        <span>Will set active month to: <strong id="preview-text">{{ active_month_name }} {{ active_year }}</strong></span>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;font-size:14px;padding:12px">
+        🔄 Apply to Entire App
+      </button>
+    </form>
+
+    <!-- Quick month shortcuts -->
+    <hr class="divider">
+    <div style="font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">Quick Jump</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px" id="quick-months"></div>
+  </div>
+
+  <!-- RIGHT: Cooking Cost for the viewing month -->
+  <div class="card">
+    <div class="card-header" style="margin-bottom:0">
+      <div>
+        <div class="card-title" style="font-size:15px">🔧 Cooking Cost</div>
+        <div style="font-size:12px;color:var(--t3);margin-top:3px">
+          For:
+          <select id="cost-month-sel" class="form-control" style="display:inline-block;width:130px;padding:3px 10px;font-size:12px;margin:0 4px" onchange="switchCostMonth()">
+            {% for mn,mname in months %}<option value="{{ mn }}"{% if mn == month %} selected{% endif %}>{{ mname }}</option>{% endfor %}
+          </select>
+          <select id="cost-year-sel" class="form-control" style="display:inline-block;width:80px;padding:3px 10px;font-size:12px;margin:0" onchange="switchCostMonth()">
+            {% for y in years %}<option value="{{ y }}"{% if y == year %} selected{% endif %}>{{ y }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+    <hr class="divider">
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save">
+      <div class="form-group">
+        <label class="form-label">Amount (৳) per eating member</label>
+        <input name="cooking_cost" type="number" id="cooking-cost-input" class="form-control"
+               value="{{ ms.cooking_cost }}"
+               min="0" step="50" required
+               style="font-size:24px;padding:14px;font-family:'JetBrains Mono',monospace;text-align:center">
+        <div class="form-hint">
+          Flat charge per member who ate at least once in {{ month_name }} {{ year }}.
+          Members with 0 meals are <strong>not charged</strong>.
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes for {{ month_name }} {{ year }}</label>
+        <textarea name="notes" class="form-control" rows="3"
+                  placeholder="Optional notes for this month...">{{ ms.notes }}</textarea>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;font-size:14px;padding:12px">
+        💾 Save Cooking Cost
+      </button>
+    </form>
+  </div>
+</div>
+
+
+<!-- ── MEAL COUNT SETTINGS ─────────────────────────── -->
+<div class="card" style="margin-bottom:24px;border:1.5px solid var(--purple)">
+  <div class="card-header" style="margin-bottom:0">
+    <div>
+      <div class="card-title" style="font-size:15px">⚖️ Meal Count Settings</div>
+      <div style="font-size:12px;color:var(--t3);margin-top:3px">
+        How many effective meals ONE meal mark is worth, per slot — applies to the whole system, every date, past and future
+      </div>
+    </div>
+  </div>
+  <hr class="divider">
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="save_count_settings">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:16px">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">🌅 Morning weight</label>
+        <input name="morning_weight" type="number" class="form-control"
+               value="{{ mcs.morning_weight|trim0 }}" min="0" step="0.01" required
+               style="font-size:18px;padding:10px;font-family:'JetBrains Mono',monospace;text-align:center">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">🍛 Lunch weight</label>
+        <input name="lunch_weight" type="number" class="form-control"
+               value="{{ mcs.lunch_weight|trim0 }}" min="0" step="0.01" required
+               style="font-size:18px;padding:10px;font-family:'JetBrains Mono',monospace;text-align:center">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">🌙 Dinner weight</label>
+        <input name="dinner_weight" type="number" class="form-control"
+               value="{{ mcs.dinner_weight|trim0 }}" min="0" step="0.01" required
+               style="font-size:18px;padding:10px;font-family:'JetBrains Mono',monospace;text-align:center">
+      </div>
+    </div>
+    <div class="form-hint" style="margin-bottom:16px">
+      Example: set Morning weight to <strong>0.5</strong> and 1 marked morning meal will count as
+      <strong>0.5 effective meals</strong> (1 × 0.5 = 0.5) everywhere — dashboard, meal grid, reports, exports,
+      and statements. This stacks with any special-day multiplier set in Day Config for that specific date.
+    </div>
+    <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;font-size:14px;padding:12px">
+      💾 Save Meal Count Settings
+    </button>
+  </form>
+</div>
+
+<!-- ── COST FORMULA REFERENCE ─────────────────────────── -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">📐 Cost Calculation Formula</div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+    <div style="background:var(--bg3);border-radius:9px;padding:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Step 1 — Meal Rate</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:13px;line-height:2;color:var(--t2)">
+        Meal Rate =<br>
+        Total Expense ÷<br>
+        Total Effective Meals
+      </div>
+    </div>
+    <div style="background:var(--bg3);border-radius:9px;padding:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Step 2 — Effective Meals</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:13px;line-height:2;color:var(--t2)">
+        Eff. Meals =<br>
+        Raw Meals × Count Weight<br>
+        × Day Multiplier
+      </div>
+    </div>
+    <div style="background:var(--bg3);border-radius:9px;padding:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Step 3 — Member Cost</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:13px;line-height:2;color:var(--t2)">
+        Cost =<br>
+        (Eff. Meals × Meal Rate)<br>
+        + Cooking Cost
+      </div>
+    </div>
+    <div style="background:var(--bg3);border-radius:9px;padding:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Step 4 — Balance</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:13px;line-height:2;color:var(--t2)">
+        Balance =<br>
+        Deposit − Cost<br>
+        <span style="color:var(--green)">+ = gets money back</span><br>
+        <span style="color:var(--red)">− = owes money</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const MONTHS = ['','January','February','March','April','May','June',
+                'July','August','September','October','November','December'];
+
+function updatePreview() {
+  const m = parseInt(document.getElementById('new-month').value);
+  const y = document.getElementById('new-year').value;
+  document.getElementById('preview-text').textContent = MONTHS[m] + ' ' + y;
+}
+
+function switchCostMonth() {
+  const m = document.getElementById('cost-month-sel').value;
+  const y = document.getElementById('cost-year-sel').value;
+  location.href = `/meals/settings/?month=${m}&year=${y}`;
+}
+
+// Quick month jump buttons — last 6 months + next 1
+function buildQuickMonths() {
+  const el    = document.getElementById('quick-months');
+  const today = new Date();
+  const active_m = {{ active_month }};
+  const active_y = {{ active_year }};
+  for (let i = -5; i <= 1; i++) {
+    let d  = new Date(today.getFullYear(), today.getMonth() + i, 1);
+    let mn = d.getMonth() + 1;
+    let yr = d.getFullYear();
+    let isActive = (mn === active_m && yr === active_y);
+    let btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = MONTHS[mn].slice(0,3) + " '" + String(yr).slice(2);
+    btn.className   = 'btn btn-xs ' + (isActive ? 'btn-primary' : 'btn-ghost');
+    btn.style.fontFamily = "'JetBrains Mono',monospace";
+    btn.onclick = () => {
+      document.getElementById('new-month').value = mn;
+      document.getElementById('new-year').value  = yr;
+      updatePreview();
+      // submit the form
+      document.getElementById('set-active-form').submit();
+    };
+    el.appendChild(btn);
+  }
+}
+
+buildQuickMonths();
+updatePreview();
+</script>
+{% endblock %}

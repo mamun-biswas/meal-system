@@ -1,0 +1,243 @@
+{% extends 'base.html' %}
+{% load perm_tags %}
+{% block title %}Monthly Meal Record — {{ month_name }} {{ year }}{% endblock %}
+{% block nav_monthly_record %}active{% endblock %}
+{% block page_title %}Monthly Meal Record{% endblock %}
+{% block page_sub %}{{ month_name }} {{ year }} — full month M/L/D grid{% endblock %}
+
+{% block content %}
+<!-- ── MONTH / YEAR SELECTOR ─────────────────────────── -->
+<div class="card" style="margin-bottom:18px;padding:16px 20px">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select id="sel-month" class="form-control" style="width:145px" onchange="changeMonthYear()">
+        {% for mn,mname in months %}
+          <option value="{{ mn }}"{% if mn == month %} selected{% endif %}>{{ mname }}</option>
+        {% endfor %}
+      </select>
+      <select id="sel-year" class="form-control" style="width:88px" onchange="changeMonthYear()">
+        {% for y in years %}
+          <option value="{{ y }}"{% if y == year %} selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+      <span class="badge badge-accent" style="font-size:12px;padding:5px 12px">{{ month_name }} {{ year }}</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     MONTHLY MEAL RECORD
+══════════════════════════════════════════════════════ -->
+<div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+    <div>
+      <div style="font-size:16px;font-weight:700">Monthly Meal Record — {{ month_name }} {{ year }}</div>
+      <div style="font-size:12px;color:var(--t3);margin-top:3px">
+        Each day shows M (Morning) / L (Lunch) / D (Dinner) separately. ⚡ = special multiplier day.
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost btn-sm" onclick="printMatrix()">🖨️ Print</button>
+    </div>
+  </div>
+
+  <!-- scrollable matrix -->
+  <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:14px;overflow:hidden">
+    <div style="overflow-x:auto;max-height:75vh;overflow-y:auto">
+      <table id="matrix-table" style="border-collapse:separate;border-spacing:0;min-width:max-content;width:100%">
+        <thead id="matrix-head"></thead>
+        <tbody id="matrix-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Matrix legend -->
+  <div style="display:flex;gap:20px;margin-top:12px;font-size:11px;color:var(--t3);flex-wrap:wrap">
+    <span style="display:flex;align-items:center;gap:5px">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#f97316;opacity:.8"></span>M = Morning
+    </span>
+    <span style="display:flex;align-items:center;gap:5px">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--accent);opacity:.8"></span>L = Lunch
+    </span>
+    <span style="display:flex;align-items:center;gap:5px">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#8b5cf6;opacity:.8"></span>D = Dinner
+    </span>
+    <span><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--amber-soft);color:var(--amber);border-radius:4px;font-weight:700;margin-right:4px">⚡</span>Special day</span>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── DATA FROM DJANGO ──────────────────────────────────────
+const MEMBERS    = {{ members_js|safe }};
+const GRID       = {{ grid_js|safe }};     // {memberId: {day: {morning,lunch,dinner,count,eff,note}}} — true committed record
+const DAY_TOTALS = {{ day_totals_js|safe }}; // {day: {multi_morning,multi_lunch,multi_dinner,multi,label}}
+const DAYS       = {{ days_in_month }};
+
+// ── MULTIPLIER HELPERS ─────────────────────────────────────
+// info.multi_morning/multi_lunch/multi_dinner come from DAY_TOTALS (per-day config).
+// info.multi is only set when all three slots share the same value (simple display case).
+function isSpecialInfo(info) {
+  const mm = info.multi_morning ?? 1.0, ml = info.multi_lunch ?? 1.0, md = info.multi_dinner ?? 1.0;
+  return mm !== 1.0 || ml !== 1.0 || md !== 1.0;
+}
+function multiplierLabel(info) {
+  const mm = info.multi_morning ?? 1.0, ml = info.multi_lunch ?? 1.0, md = info.multi_dinner ?? 1.0;
+  if (mm === ml && ml === md) return `×${mm}`;
+  return `M×${mm} L×${ml} D×${md}`;
+}
+
+// ── MONTH/YEAR CHANGE ─────────────────────────────────────
+function changeMonthYear() {
+  const m = document.getElementById('sel-month').value;
+  const y = document.getElementById('sel-year').value;
+  location.href = `/meals/monthly-record/?month=${m}&year=${y}`;
+}
+
+function printMatrix() {
+  window.print();
+}
+
+// ── MATRIX ──────────────────────────────────────────────
+function buildMatrix() {
+  const thead = document.getElementById('matrix-head');
+  const tbody = document.getElementById('matrix-body');
+  const thStyle = 'padding:5px 3px;font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--t3);background:var(--bg3);border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);white-space:nowrap;text-align:center;font-weight:600;position:sticky;top:0;z-index:4';
+  const thNameStyle = 'padding:8px 14px;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--t3);background:var(--bg3);border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);white-space:nowrap;text-align:left;font-weight:600;position:sticky;left:0;top:0;z-index:5';
+  const tdStyle = 'padding:0;border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);text-align:center;font-size:10px';
+  const tdNameStyle = 'padding:9px 14px;border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);font-weight:600;font-size:13px;white-space:nowrap;position:sticky;left:0;background:var(--bg2);z-index:2';
+
+  // Build header: 2 rows — row1: day numbers (span 3 cols each), row2: M/L/D labels.
+  // Row1 cells stick at top:0. Row2 cells must stick just below row1, but row1's
+  // rendered height depends on font metrics/browser, so row2's top offset is
+  // measured and applied after the header is in the DOM (see below).
+  let header1 = `<tr>
+    <th rowspan="2" style="${thNameStyle}">#&nbsp; Member</th>`;
+  let header2 = `<tr class="mmr-header-row2">`;
+
+  for (let d = 1; d <= DAYS; d++) {
+    const info    = DAY_TOTALS[String(d)] || {};
+    const special = isSpecialInfo(info);
+    const bg      = special ? 'background:var(--amber-soft);color:var(--amber)' : '';
+    header1 += `<th colspan="3" style="${thStyle};min-width:78px;${bg}" title="${special ? multiplierLabel(info)+' '+(info.label||'') : 'Day '+d}">
+      ${d}${special ? ' ⚡' : ''}
+    </th>`;
+    header2 += `<th style="${thStyle};min-width:26px;color:#f97316;background:rgba(249,115,22,.07)">M</th>`;
+    header2 += `<th style="${thStyle};min-width:26px;color:var(--accent);background:var(--accent-soft)">L</th>`;
+    header2 += `<th style="${thStyle};min-width:26px;color:#8b5cf6;background:rgba(139,92,246,.07)">D</th>`;
+  }
+  header1 += `<th colspan="2" style="${thStyle};background:var(--accent-soft);color:var(--accent);min-width:80px">TOTAL</th></tr>`;
+  header2 += `<th style="${thStyle};background:var(--accent-soft);color:var(--accent);min-width:40px">Raw</th>`;
+  header2 += `<th style="${thStyle};background:var(--accent-soft);color:var(--accent);min-width:40px">Eff.</th>`;
+  header2 += `</tr>`;
+  thead.innerHTML = header1 + header2;
+
+  // Row2 header cells stick right below row1 — measure row1's actual
+  // rendered height (using a non-rowspan cell so the tall #&nbsp;Member
+  // corner cell doesn't skew the measurement) and offset row2 by it.
+  const row1SampleCell = thead.querySelector('tr:first-child th[colspan="3"]');
+  const row1Height = row1SampleCell ? row1SampleCell.getBoundingClientRect().height : 0;
+  thead.querySelectorAll('tr.mmr-header-row2 > th').forEach(th => {
+    th.style.top = row1Height + 'px';
+  });
+
+  // Build member rows
+  let bodyHTML = '';
+  // day col totals for M/L/D
+  let dayM = new Array(DAYS).fill(0);
+  let dayL = new Array(DAYS).fill(0);
+  let dayD = new Array(DAYS).fill(0);
+  let grandRaw = 0, grandEff = 0;
+
+  MEMBERS.forEach((m, idx) => {
+    let rowRaw = 0, rowEff = 0;
+    let cells = '';
+    for (let d = 1; d <= DAYS; d++) {
+      const info    = DAY_TOTALS[String(d)] || {};
+      const special = isSpecialInfo(info);
+      const dayData = GRID[m.id] && GRID[m.id][String(d)];
+      const mo  = dayData ? (dayData.morning || 0) : 0;
+      const lu  = dayData ? (dayData.lunch   || 0) : 0;
+      const di  = dayData ? (dayData.dinner  || 0) : 0;
+      const tot = mo + lu + di;
+      // Use the server-computed effective count (mk.effective_count(),
+      // sent as dayData.eff) rather than recalculating client-side —
+      // the server value correctly folds in BOTH the Meal Count Settings
+      // global weight and any per-day Special Meal Entry multiplier.
+      // Recomputing here from mo/lu/di + only the day multiplier would
+      // silently drop the weight and under/over-count the totals.
+      const eff = dayData ? (dayData.eff || 0) : 0;
+      rowRaw += tot;
+      rowEff += eff;
+      dayM[d-1] += mo;
+      dayL[d-1] += lu;
+      dayD[d-1] += di;
+
+      const specialBg = special ? 'background:var(--amber-soft)' : '';
+
+      // Morning cell
+      cells += `<td style="${tdStyle};${specialBg}" title="${m.name} Day ${d} Morning: ${mo}">
+        <div style="padding:5px 2px;color:${mo>0?'#f97316':'var(--t4)'};font-weight:${mo>0?'700':'400'}">${mo>0?mo:'—'}</div>
+      </td>`;
+      // Lunch cell
+      cells += `<td style="${tdStyle};${specialBg}" title="${m.name} Day ${d} Lunch: ${lu}">
+        <div style="padding:5px 2px;color:${lu>0?'var(--accent)':'var(--t4)'};font-weight:${lu>0?'700':'400'}">${lu>0?lu:'—'}</div>
+      </td>`;
+      // Dinner cell
+      cells += `<td style="${tdStyle};border-right:2px solid var(--bd);${specialBg}" title="${m.name} Day ${d} Dinner: ${di}">
+        <div style="padding:5px 2px;color:${di>0?'#8b5cf6':'var(--t4)'};font-weight:${di>0?'700':'400'}">${di>0?di:'—'}</div>
+      </td>`;
+    }
+    grandRaw += rowRaw;
+    grandEff += rowEff;
+
+    const rowBg = idx % 2 === 0 ? '' : 'background:rgba(255,255,255,.02)';
+    bodyHTML += `<tr style="${rowBg}">
+      <td style="${tdNameStyle}">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="avatar" style="background:${m.color};width:26px;height:26px;font-size:10px;flex-shrink:0">${m.initials}</div>
+          <div>
+            <div>${m.name}</div>
+            ${m.room ? `<div style="font-size:10px;color:var(--t3)">Room ${m.room}</div>` : ''}
+          </div>
+        </div>
+      </td>
+      ${cells}
+      <td style="${tdStyle};background:var(--accent-soft)"><div style="padding:6px 4px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace">${rowRaw}</div></td>
+      <td style="${tdStyle};background:var(--accent-soft)"><div style="padding:6px 4px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace">${rowEff.toFixed(1)}</div></td>
+    </tr>`;
+  });
+
+  // Footer totals row
+  let footCells = '';
+  for (let d = 1; d <= DAYS; d++) {
+    const info    = DAY_TOTALS[String(d)] || {};
+    const special = isSpecialInfo(info);
+    const mo = dayM[d-1], lu = dayL[d-1], di = dayD[d-1];
+    const specialBg = special ? 'background:var(--amber-soft)' : 'background:var(--bg3)';
+    footCells += `<td style="padding:5px 2px;border-right:1px solid var(--bd);text-align:center;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;${specialBg};color:${mo>0?(special?'var(--amber)':'#f97316'):'var(--t4)'}">${mo>0?mo:''}</td>`;
+    footCells += `<td style="padding:5px 2px;border-right:1px solid var(--bd);text-align:center;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;${specialBg};color:${lu>0?(special?'var(--amber)':'var(--accent)'):'var(--t4)'}">${lu>0?lu:''}</td>`;
+    footCells += `<td style="padding:5px 2px;border-right:2px solid var(--bd);text-align:center;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;${specialBg};color:${di>0?(special?'var(--amber)':'#8b5cf6'):'var(--t4)'}">${di>0?di:''}</td>`;
+  }
+  bodyHTML += `<tr style="border-top:2px solid var(--bd2)">
+    <td style="padding:10px 14px;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--t3);background:var(--bg3);position:sticky;left:0;border-right:1px solid var(--bd);border-bottom:1px solid var(--bd)">
+      TOTAL
+    </td>
+    ${footCells}
+    <td style="padding:8px 6px;border-right:1px solid var(--bd);text-align:center;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--accent);background:var(--accent-soft)">${grandRaw}</td>
+    <td style="padding:8px 6px;text-align:center;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--accent);background:var(--accent-soft)">${grandEff.toFixed(1)}</td>
+  </tr>`;
+
+  tbody.innerHTML = bodyHTML;
+}
+
+// ── INIT ──────────────────────────────────────────────────
+buildMatrix();
+let mmrResizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(mmrResizeTimer);
+  mmrResizeTimer = setTimeout(buildMatrix, 150);
+});
+</script>
+{% endblock %}

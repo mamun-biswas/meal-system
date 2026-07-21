@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% load perm_tags %}
+{% block title %}{{ action }} Member{% endblock %}
+{% block nav_members %}active{% endblock %}
+{% block page_title %}{{ action }} Member{% endblock %}
+{% block page_sub %}{% if action == 'Edit' %}Update details for {{ target.name }}{% else %}Create a new member account{% endif %}{% endblock %}
+{% block content %}
+<div style="max-width:620px">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        {% if action == 'Edit' %}✏️ Edit: {{ target.name }}{% else %}➕ New Member{% endif %}
+      </div>
+      <a href="/members/" class="btn btn-ghost btn-sm">← Back</a>
+    </div>
+    <form method="post">{% csrf_token %}
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Full Name *</label>
+          <input name="name" class="form-control" placeholder="e.g. Rahim Uddin"
+                 required value="{{ target.name|default:'' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">বাংলা নাম <span style="color:var(--t3);font-weight:400">(Bangla Name — for Bangla report)</span></label>
+          <input name="name_bn" class="form-control" placeholder="যেমন: রহিম উদ্দিন"
+                 value="{{ target.name_bn|default:'' }}" style="font-family:'Noto Sans Bengali','Hind Siliguri',sans-serif">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone Number *</label>
+          <input name="phone" type="tel" class="form-control" placeholder="01XXXXXXXXX"
+                 {% if target %}value="{{ target.phone }}" readonly style="opacity:.6;cursor:not-allowed"
+                 {% else %}required{% endif %}>
+          {% if target %}
+          <div class="form-hint">📵 Phone number cannot be changed</div>
+          {% else %}
+          <div class="form-hint">Used as login credential</div>
+          {% endif %}
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Room Number</label>
+          <input name="room_number" class="form-control" placeholder="e.g. A-101"
+                 value="{{ target.room_number|default:'' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Role *</label>
+          <select name="role" class="form-control"
+                  {% if not user_member.is_manager %}disabled{% endif %}>
+            {% for val,label in roles %}
+            <option value="{{ val }}"
+              {% if target and target.role == val %}selected
+              {% elif not target and val == 'member' %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          {% if not user_member.is_manager %}
+          <div class="form-hint">Only Manager can change roles</div>
+          {% endif %}
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">
+          Password
+          {% if action == 'Edit' %}<span style="color:var(--t3);font-weight:400">(leave blank to keep current)</span>{% else %}*{% endif %}
+        </label>
+        <div style="position:relative">
+          <input name="password" type="password" id="pwd-field" class="form-control"
+                 placeholder="{% if action == 'Edit' %}New password (optional){% else %}Set a secure password{% endif %}"
+                 {% if action == 'Add' %}required{% endif %}
+                 autocomplete="new-password"
+                 style="padding-right:44px">
+          <button type="button"
+            onclick="const i=document.getElementById('pwd-field');i.type=i.type==='password'?'text':'password'"
+            style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--t3);font-size:16px;padding:4px">
+            👁
+          </button>
+        </div>
+        {% if action == 'Add' %}
+        <div class="form-hint">Members log in using their phone number + this password</div>
+        {% endif %}
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes / Remarks</label>
+        <textarea name="note" class="form-control" rows="3"
+                  placeholder="Any additional info...">{{ target.note|default:'' }}</textarea>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--bd)">
+        <a href="/members/" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">
+          {% if action == 'Edit' %}💾 Save Changes{% else %}✅ Create Member{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

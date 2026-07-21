@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+{% load perm_tags %}
+{% block title %}Deposits — {{ month_name }} {{ year }}{% endblock %}
+{% block nav_deposits %}active{% endblock %}
+{% block page_title %}Deposits{% endblock %}
+{% block page_sub %}{{ month_name }} {{ year }} — member payment records{% endblock %}
+
+{% block content %}
+<!-- TOP BAR -->
+<div style="display:flex;gap:10px;align-items:center;margin-bottom:18px;flex-wrap:wrap">
+  <select id="sel-month" class="form-control" style="width:145px" onchange="changeMonthYear()">
+    {% for mn,mn2 in months %}<option value="{{ mn }}"{% if mn == month %} selected{% endif %}>{{ mn2 }}</option>{% endfor %}
+  </select>
+  <select id="sel-year" class="form-control" style="width:88px" onchange="changeMonthYear()">
+    {% for y in years %}<option value="{{ y }}"{% if y == year %} selected{% endif %}>{{ y }}</option>{% endfor %}
+  </select>
+  <div class="card" style="padding:10px 18px;display:inline-flex;gap:12px;align-items:center;flex-shrink:0">
+    <span style="font-size:12px;color:var(--t3)">Total:</span>
+    <span class="mono fw-700" style="font-size:20px;color:var(--green)">৳{{ total|floatformat:2 }}</span>
+  </div>
+  {% if can_add %}
+  <button class="btn btn-primary" style="margin-left:auto" onclick="openModal('modal-add')">+ Add Deposit</button>
+  {% endif %}
+</div>
+
+<!-- TABLE -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Date</th><th>Member</th>
+        <th>Amount</th><th>Method</th><th>Note</th>
+        <th>Added By</th>{% if can_del %}<th></th>{% endif %}
+      </tr>
+    </thead>
+    <tbody id="dep-table">
+      {% for d in page %}
+      <tr id="dep-{{ d.pk }}">
+        <td class="mono text-muted" style="font-size:12px">{{ forloop.counter }}</td>
+        <td class="mono" style="font-size:13px">{{ d.date }}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="avatar" style="background:{{ d.member.avatar_color }};width:28px;height:28px;font-size:10px">{{ d.member.initials }}</div>
+            <span class="td-name">{{ d.member.name }}</span>
+          </div>
+        </td>
+        <td class="mono fw-700" style="color:var(--green);font-size:14px">৳{{ d.amount|floatformat:2 }}</td>
+        <td>
+          <span class="badge
+            {% if d.method == 'cash' %}badge-green
+            {% elif d.method == 'bkash' %}badge-purple
+            {% elif d.method == 'nagad' %}badge-amber
+            {% elif d.method == 'rocket' %}badge-cyan
+            {% else %}badge-blue{% endif %}">
+            {{ d.get_method_display }}
+          </span>
+        </td>
+        <td style="font-size:12px;color:var(--t2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+          {{ d.note|default:"—" }}
+        </td>
+        <td style="font-size:12px;color:var(--t3)">{{ d.added_by.name|default:"—" }}</td>
+        {% if can_del %}
+        <td>
+          <button class="btn btn-danger btn-xs" onclick="deleteDep({{ d.pk }})">✕</button>
+        </td>
+        {% endif %}
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="8">
+          <div class="empty-state">
+            <div class="empty-icon">💰</div>
+            <div class="empty-title">No deposits this month</div>
+            <div class="empty-sub">{% if can_add %}Click "+ Add Deposit" to record a payment{% else %}No deposits recorded yet{% endif %}</div>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if page.has_other_pages %}
+<div class="pagination">
+  {% if page.has_previous %}
+  <a href="?page={{ page.previous_page_number }}&month={{ month }}&year={{ year }}" class="page-btn">‹</a>
+  {% endif %}
+  {% for n in page.paginator.page_range %}
+  <a href="?page={{ n }}&month={{ month }}&year={{ year }}" class="page-btn {% if n == page.number %}active{% endif %}">{{ n }}</a>
+  {% endfor %}
+  {% if page.has_next %}
+  <a href="?page={{ page.next_page_number }}&month={{ month }}&year={{ year }}" class="page-btn">›</a>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- ADD MODAL -->
+{% if can_add %}
+<div class="modal-overlay" id="modal-add">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">💰 Add Deposit</div>
+      <button class="modal-close" onclick="closeModal('modal-add')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Member *</label>
+        <select id="dep-member" class="form-control">
+          {% for m in members %}
+          <option value="{{ m.pk }}">{{ m.name }}{% if m.room_number %} — Room {{ m.room_number }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Amount (৳) *</label>
+          <input type="number" id="dep-amount" class="form-control" placeholder="e.g. 1500" min="1" step="0.01">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date *</label>
+          <input type="date" id="dep-date" class="form-control">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Payment Method</label>
+        <select id="dep-method" class="form-control">
+          <option value="cash">Cash</option>
+          <option value="bkash">bKash</option>
+          <option value="nagad">Nagad</option>
+          <option value="rocket">Rocket</option>
+          <option value="bank">Bank Transfer</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Note / Remarks</label>
+        <input type="text" id="dep-note" class="form-control" placeholder="Optional notes">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add')">Cancel</button>
+      <button class="btn btn-primary" id="add-btn" onclick="addDeposit()">✅ Add Deposit</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function changeMonthYear() {
+  location.href = `/finance/deposits/?month=${document.getElementById('sel-month').value}&year=${document.getElementById('sel-year').value}`;
+}
+// Set today as default date
+(function(){ const el = document.getElementById('dep-date'); if(el) el.value = new Date().toISOString().split('T')[0]; })();
+
+async function addDeposit() {
+  const mid    = document.getElementById('dep-member')?.value;
+  const amount = document.getElementById('dep-amount')?.value;
+  const date   = document.getElementById('dep-date')?.value;
+  const method = document.getElementById('dep-method')?.value;
+  const note   = document.getElementById('dep-note')?.value;
+  if (!amount || parseFloat(amount) <= 0) { toast('Error','Enter a valid amount','error'); return; }
+  if (!date) { toast('Error','Select a date','error'); return; }
+  const btn = document.getElementById('add-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    const d = await apiCall('/finance/deposits/add/', 'POST',
+      { member_id: mid, amount: parseFloat(amount), date, method, note });
+    toast('Deposit Added', d.message, 'success');
+    closeModal('modal-add');
+    setTimeout(() => location.reload(), 1000);
+  } catch(e) {
+    toast('Error', e.message, 'error');
+  }
+  btn.disabled = false; btn.innerHTML = '✅ Add Deposit';
+}
+
+async function deleteDep(pk) {
+  if (!confirm('Delete this deposit? This cannot be undone.')) return;
+  try {
+    const d = await apiCall(`/finance/deposits/${pk}/delete/`, 'DELETE');
+    const row = document.getElementById(`dep-${pk}`);
+    if (row) { row.style.opacity = '.3'; setTimeout(() => row.remove(), 300); }
+    toast('Deleted', d.message, 'success');
+  } catch(e) { toast('Error', e.message, 'error'); }
+}
+</script>
+{% endblock %}

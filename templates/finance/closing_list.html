@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% load perm_tags %}
+{% block title %}Meal Closing{% endblock %}
+{% block nav_closing %}active{% endblock %}
+{% block page_title %}Meal Closing{% endblock %}
+{% block page_sub %}Settle member balances month by month{% endblock %}
+
+{% block content %}
+
+<style>
+.closing-scroll-table{width:100%;border-collapse:collapse}
+.closing-scroll-table th{padding:11px 16px;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--t3);background:var(--bg3);font-weight:600;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}
+.closing-scroll-table td{padding:12px 16px;font-size:13px;color:var(--t2);border-bottom:1px solid var(--bd);white-space:nowrap}
+.closing-scroll-table tr:last-child td{border-bottom:none}
+.closing-scroll-table tr:hover td{background:var(--bg3)}
+</style>
+
+<!-- Header action -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:10px">
+  <div style="font-size:13px;color:var(--t2)">
+    Each closing snapshots the active month's calculations and lets you record
+    whether each member <strong>paid</strong> their dues or <strong>received</strong> their refund.
+  </div>
+  {% if user_member.is_manager or user_member|has_perm:"monthly_close" %}
+  <form method="post" action="/finance/closing/create/" id="create-form">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary btn-sm" onclick="return confirm('Create a closing snapshot for the current active month?')">
+      ➕ New Closing
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+{% if closings %}
+<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:14px;overflow:hidden">
+  <div style="overflow-x:auto;min-height:400px;max-height:75vh;overflow-y:auto">
+  <table class="closing-scroll-table" style="width:100%;border-collapse:collapse;min-width:max-content">
+    <thead>
+      <tr>
+        <th style="position:sticky;top:0;z-index:2">Month / Year</th>
+        <th style="position:sticky;top:0;z-index:2">Meal Rate</th>
+        <th style="position:sticky;top:0;z-index:2">Total Expense</th>
+        <th style="position:sticky;top:0;z-index:2">Total Deposit</th>
+        <th style="position:sticky;top:0;z-index:2">Fund Balance</th>
+        <th style="position:sticky;top:0;z-index:2">Status</th>
+        <th style="position:sticky;top:0;z-index:2">Closed By</th>
+        <th style="position:sticky;top:0;z-index:2">Closed At</th>
+        <th style="position:sticky;top:0;z-index:2"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in closings %}
+      <tr>
+        <td class="fw-700">{{ c.month|date:"F" }} {{ c.year }}
+          {% with mn=c.month yr=c.year %}
+          <span style="font-size:10px;color:var(--t3);display:block;font-weight:400">
+            {% if c.month == 1 %}January{% elif c.month == 2 %}February{% elif c.month == 3 %}March{% elif c.month == 4 %}April{% elif c.month == 5 %}May{% elif c.month == 6 %}June{% elif c.month == 7 %}July{% elif c.month == 8 %}August{% elif c.month == 9 %}September{% elif c.month == 10 %}October{% elif c.month == 11 %}November{% else %}December{% endif %}
+            {{ c.year }}
+          </span>
+          {% endwith %}
+        </td>
+        <td class="mono">৳{{ c.meal_rate }}</td>
+        <td class="mono" style="color:var(--red)">৳{{ c.total_exp }}</td>
+        <td class="mono" style="color:var(--green)">৳{{ c.total_dep }}</td>
+        <td class="mono fw-600" style="color:{% if c.fund_balance >= 0 %}var(--green){% else %}var(--red){% endif %}">
+          {% if c.fund_balance >= 0 %}+{% endif %}৳{{ c.fund_balance }}
+        </td>
+        <td>
+          {% if c.status == 'closed' %}
+            <span class="badge badge-green">✅ Closed</span>
+          {% else %}
+            <span class="badge badge-amber">⏳ Open</span>
+          {% endif %}
+        </td>
+        <td class="text-muted text-sm">{{ c.closed_by.name|default:"—" }}</td>
+        <td class="mono text-sm text-muted">{{ c.closed_at|date:"d M Y"|default:"—" }}</td>
+        <td>
+          <div style="display:flex;gap:6px;justify-content:flex-end">
+            <a href="/finance/closing/{{ c.pk }}/" class="btn btn-ghost btn-sm">View →</a>
+            {% if user_member.is_manager %}
+            <form method="post" action="/finance/closing/{{ c.pk }}/delete/" style="display:inline">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-danger btn-sm"
+                      onclick="return confirm('Permanently delete the {{ c.month|date:"F" }} {{ c.year }} closing and all its member settlement records? This cannot be undone.')">🗑</button>
+            </form>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% else %}
+<div class="empty-state" style="padding:60px 20px">
+  <div class="empty-icon">🔒</div>
+  <div class="empty-title">No closings yet</div>
+  <div class="empty-sub">Create a closing snapshot for the active month to start settling member balances.</div>
+  {% if user_member.is_manager or user_member|has_perm:"monthly_close" %}
+  <form method="post" action="/finance/closing/create/" style="margin-top:18px">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary">➕ Create First Closing</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

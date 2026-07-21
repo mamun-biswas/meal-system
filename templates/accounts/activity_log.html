@@ -1,0 +1,292 @@
+{% extends 'base.html' %}
+{% load perm_tags %}
+{% block title %}Activity Log{% endblock %}
+{% block nav_log %}active{% endblock %}
+{% block page_title %}📜 Activity Log{% endblock %}
+{% block page_sub %}Complete audit trail · {{ total_count }} result{{ total_count|pluralize }}{% endblock %}
+{% block content %}
+
+<!-- Filter Bar -->
+<form method="get" id="filter-form">
+  <div class="card" style="margin-bottom:20px;padding:18px 20px">
+
+    <!-- Top row: search + clear -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <div class="search-bar" style="flex:1;min-width:220px">
+        <span style="font-size:15px;color:var(--t3)">🔍</span>
+        <input name="q" value="{{ q_search }}" placeholder="Search action, detail, member name, IP…" id="q-input" autocomplete="off">
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">Search</button>
+      {% if any_filter %}
+      <a href="/activity-log/" class="btn btn-ghost btn-sm" style="color:var(--red)">✕ Clear filters</a>
+      {% endif %}
+    </div>
+
+    <!-- Filter chips row -->
+    <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+
+      <!-- Member -->
+      <div style="min-width:160px;flex:1">
+        <label style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:5px">Member</label>
+        <select name="member_id" class="form-control" style="font-size:12px;padding:7px 28px 7px 10px" onchange="this.form.submit()">
+          <option value="">All Members</option>
+          {% for m in all_members %}
+          <option value="{{ m.id }}" {% if q_member_id == m.id|stringformat:"s" %}selected{% endif %}>{{ m.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Action type -->
+      <div style="min-width:160px;flex:1">
+        <label style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:5px">Action Type</label>
+        <select name="action_type" class="form-control" style="font-size:12px;padding:7px 28px 7px 10px" onchange="this.form.submit()">
+          <option value="">All Actions</option>
+          {% for at in action_types %}
+          <option value="{{ at }}" {% if q_action == at %}selected{% endif %}>{{ at }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Date from -->
+      <div style="min-width:140px">
+        <label style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:5px">From Date</label>
+        <input type="date" name="date_from" value="{{ q_date_from }}" class="form-control" style="font-size:12px;padding:7px 10px" onchange="this.form.submit()">
+      </div>
+
+      <!-- Date to -->
+      <div style="min-width:140px">
+        <label style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:5px">To Date</label>
+        <input type="date" name="date_to" value="{{ q_date_to }}" class="form-control" style="font-size:12px;padding:7px 10px" onchange="this.form.submit()">
+      </div>
+
+      <!-- Per page -->
+      <div style="min-width:90px">
+        <label style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:5px">Show</label>
+        <select name="per_page" class="form-control" style="font-size:12px;padding:7px 28px 7px 10px" onchange="this.form.submit()">
+          <option value="25"  {% if per_page == 25  %}selected{% endif %}>25</option>
+          <option value="50"  {% if per_page == 50  %}selected{% endif %}>50</option>
+          <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+          <option value="200" {% if per_page == 200 %}selected{% endif %}>200</option>
+        </select>
+      </div>
+
+    </div>
+
+    <!-- Active filter badges -->
+    {% if any_filter %}
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--bd)">
+      <span style="font-size:11px;color:var(--t3);margin-right:4px;align-self:center">Active filters:</span>
+      {% if q_search %}<span class="badge badge-accent">🔍 "{{ q_search }}"</span>{% endif %}
+      {% if q_member_id %}
+        {% for m in all_members %}{% if m.id|stringformat:"s" == q_member_id %}<span class="badge badge-blue">👤 {{ m.name }}</span>{% endif %}{% endfor %}
+      {% endif %}
+      {% if q_action %}<span class="badge badge-purple">⚡ {{ q_action }}</span>{% endif %}
+      {% if q_date_from %}<span class="badge badge-amber">📅 From {{ q_date_from }}</span>{% endif %}
+      {% if q_date_to %}<span class="badge badge-amber">📅 To {{ q_date_to }}</span>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</form>
+
+<!-- Results count + pagination info -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+  <div style="font-size:13px;color:var(--t3)">
+    Showing <strong style="color:var(--t)">{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong>
+    of <strong style="color:var(--t)">{{ total_count }}</strong> entries
+    {% if any_filter %}<span style="color:var(--accent)">(filtered)</span>{% endif %}
+  </div>
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div style="font-size:12px;color:var(--t3)">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</div>
+  {% endif %}
+</div>
+
+<!-- Log Table -->
+<div class="table-wrap" style="margin-bottom:20px">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:150px">Timestamp</th>
+        <th style="width:150px">Member</th>
+        <th>Action</th>
+        <th>Detail</th>
+        <th style="width:120px">IP Address</th>
+        <th style="width:48px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in page_obj %}
+      <tr id="log-{{ log.pk }}" style="cursor:pointer" onclick="toggleDetail({{ log.pk }})">
+        <td class="mono" style="font-size:11px;white-space:nowrap;color:var(--t3)">
+          <div style="color:var(--t2);font-size:12px">{{ log.timestamp|date:"d M Y" }}</div>
+          <div>{{ log.timestamp|date:"H:i:s" }}</div>
+        </td>
+        <td>
+          {% if log.member %}
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="avatar" style="background:{{ log.member.avatar_color }};width:26px;height:26px;font-size:10px;flex-shrink:0">{{ log.member.initials }}</div>
+            <div>
+              <div class="td-name" style="font-size:12px">{{ log.member.name }}</div>
+              <div style="font-size:10px;color:var(--t3)">{{ log.member.get_role_display }}</div>
+            </div>
+          </div>
+          {% else %}<span class="text-muted">—</span>{% endif %}
+        </td>
+        <td>
+          <span style="font-size:13px;font-weight:500;color:var(--t)">{{ log.action }}</span>
+        </td>
+        <td style="max-width:240px">
+          {% if log.detail %}
+          <span class="detail-preview-{{ log.pk }}" style="font-size:12px;color:var(--t2)">{{ log.detail|truncatechars:70 }}</span>
+          {% else %}<span class="text-muted">—</span>{% endif %}
+        </td>
+        <td class="mono" style="font-size:11px;color:var(--t3)">
+          {% if log.ip %}
+          <span style="cursor:pointer" onclick="event.stopPropagation();filterByIP('{{ log.ip }}')" title="Filter by this IP">{{ log.ip }}</span>
+          {% else %}—{% endif %}
+        </td>
+        <td style="text-align:center">
+          {% if log.detail %}
+          <span id="chevron-{{ log.pk }}" style="color:var(--t3);font-size:12px;transition:transform .2s;display:inline-block">▶</span>
+          {% endif %}
+        </td>
+      </tr>
+      <!-- Expandable detail row -->
+      {% if log.detail %}
+      <tr id="detail-{{ log.pk }}" style="display:none;background:var(--bg3)">
+        <td colspan="6" style="padding:0">
+          <div style="padding:14px 20px;border-top:1px solid var(--bd);border-bottom:1px solid var(--bd)">
+            <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">
+              <div style="flex:1;min-width:240px">
+                <div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">Full Detail</div>
+                <div style="font-size:13px;color:var(--t);font-family:'JetBrains Mono',monospace;background:var(--bg4);padding:10px 14px;border-radius:8px;border:1px solid var(--bd);white-space:pre-wrap;word-break:break-all">{{ log.detail }}</div>
+              </div>
+              <div style="min-width:180px">
+                <div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">Metadata</div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div style="font-size:12px;display:flex;justify-content:space-between;gap:16px;padding:6px 10px;background:var(--bg4);border-radius:6px">
+                    <span style="color:var(--t3)">Log ID</span>
+                    <span class="mono" style="color:var(--t)">#{{ log.pk }}</span>
+                  </div>
+                  <div style="font-size:12px;display:flex;justify-content:space-between;gap:16px;padding:6px 10px;background:var(--bg4);border-radius:6px">
+                    <span style="color:var(--t3)">Time</span>
+                    <span class="mono" style="color:var(--t)">{{ log.timestamp|date:"H:i:s" }}</span>
+                  </div>
+                  <div style="font-size:12px;display:flex;justify-content:space-between;gap:16px;padding:6px 10px;background:var(--bg4);border-radius:6px">
+                    <span style="color:var(--t3)">IP</span>
+                    <span class="mono" style="color:var(--t)">{{ log.ip|default:"—" }}</span>
+                  </div>
+                  {% if log.member %}
+                  <div style="font-size:12px;display:flex;justify-content:space-between;gap:16px;padding:6px 10px;background:var(--bg4);border-radius:6px">
+                    <span style="color:var(--t3)">Member</span>
+                    <span style="color:var(--t)">{{ log.member.name }}</span>
+                  </div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            <!-- Quick filter buttons -->
+            <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+              {% if log.member %}
+              <a href="?member_id={{ log.member.id }}{% if q_date_from %}&date_from={{ q_date_from }}{% endif %}{% if q_date_to %}&date_to={{ q_date_to }}{% endif %}"
+                 class="btn btn-ghost btn-xs" onclick="event.stopPropagation()">
+                👤 All logs for {{ log.member.name }}
+              </a>
+              {% endif %}
+              <a href="?q={{ log.action|urlencode }}" class="btn btn-ghost btn-xs" onclick="event.stopPropagation()">
+                ⚡ Same action type
+              </a>
+              {% if log.ip %}
+              <a href="?q={{ log.ip }}" class="btn btn-ghost btn-xs" onclick="event.stopPropagation()">
+                🌐 Same IP address
+              </a>
+              {% endif %}
+              <a href="?date_from={{ log.timestamp|date:'Y-m-d' }}&date_to={{ log.timestamp|date:'Y-m-d' }}"
+                 class="btn btn-ghost btn-xs" onclick="event.stopPropagation()">
+                📅 Same day logs
+              </a>
+            </div>
+          </div>
+        </td>
+      </tr>
+      {% endif %}
+      {% empty %}
+      <tr>
+        <td colspan="6">
+          <div class="empty-state" style="padding:48px">
+            <div class="empty-icon">🔍</div>
+            <div class="empty-title">No logs match your filters</div>
+            <div class="empty-sub">Try adjusting your search or <a href="/activity-log/" style="color:var(--accent)">clear all filters</a></div>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Pagination -->
+{% if page_obj.paginator.num_pages > 1 %}
+<div class="pagination">
+  {% if page_obj.has_previous %}
+  <a href="?{{ filter_qs }}&page=1" class="page-btn" title="First">«</a>
+  <a href="?{{ filter_qs }}&page={{ page_obj.previous_page_number }}" class="page-btn">‹</a>
+  {% endif %}
+
+  {% for num in page_obj.paginator.page_range %}
+    {% if num == page_obj.number %}
+      <span class="page-btn active">{{ num }}</span>
+    {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+      <a href="?{{ filter_qs }}&page={{ num }}" class="page-btn">{{ num }}</a>
+    {% elif num == 1 or num == page_obj.paginator.num_pages %}
+      <a href="?{{ filter_qs }}&page={{ num }}" class="page-btn">{{ num }}</a>
+    {% elif num == page_obj.number|add:"-3" or num == page_obj.number|add:"3" %}
+      <span class="page-btn" style="cursor:default;pointer-events:none">…</span>
+    {% endif %}
+  {% endfor %}
+
+  {% if page_obj.has_next %}
+  <a href="?{{ filter_qs }}&page={{ page_obj.next_page_number }}" class="page-btn">›</a>
+  <a href="?{{ filter_qs }}&page={{ page_obj.paginator.num_pages }}" class="page-btn" title="Last">»</a>
+  {% endif %}
+</div>
+{% endif %}
+
+<script>
+const openDetails = new Set();
+
+function toggleDetail(pk) {
+  const row = document.getElementById('detail-' + pk);
+  const chev = document.getElementById('chevron-' + pk);
+  if (!row) return;
+  const isOpen = row.style.display !== 'none';
+  row.style.display = isOpen ? 'none' : 'table-row';
+  if (chev) chev.style.transform = isOpen ? '' : 'rotate(90deg)';
+}
+
+function filterByIP(ip) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('q', ip);
+  url.searchParams.delete('page');
+  window.location.href = url.toString();
+}
+
+// Keyboard shortcut: / to focus search
+document.addEventListener('keydown', function(e) {
+  if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT') {
+    e.preventDefault();
+    document.getElementById('q-input').focus();
+  }
+  if (e.key === 'Escape') {
+    document.getElementById('q-input').blur();
+  }
+});
+
+// Show keyboard hint
+document.getElementById('q-input').addEventListener('focus', function() {
+  this.placeholder = 'Search… (Esc to clear focus)';
+});
+document.getElementById('q-input').addEventListener('blur', function() {
+  this.placeholder = 'Search action, detail, member name, IP…';
+});
+</script>
+{% endblock %}

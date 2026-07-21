@@ -1,0 +1,238 @@
+{% extends 'base.html' %}
+{% block auth_content %}
+<style>
+.login-root{min-height:100vh;display:flex;background:var(--bg)}
+.login-left{flex:1;display:flex;align-items:center;justify-content:center;padding:40px;position:relative;overflow:hidden}
+.login-left::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 30% 40%,rgba(99,102,241,.18) 0%,transparent 60%),radial-gradient(ellipse at 80% 80%,rgba(168,85,247,.12) 0%,transparent 55%)}
+.login-art{position:relative;z-index:1;text-align:center;max-width:480px}
+.login-right{width:460px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:40px;background:var(--bg2);border-left:1px solid var(--bd)}
+.login-box{width:100%;max-width:380px}
+.brand-icon{width:72px;height:72px;background:var(--accent);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:34px;margin:0 auto 20px;box-shadow:0 8px 40px rgba(99,102,241,.45);animation:float 3s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.login-title{font-size:26px;font-weight:800;letter-spacing:-.6px;margin-bottom:6px}
+.login-sub{color:var(--t3);font-size:13px;margin-bottom:32px}
+.input-wrap{position:relative}
+.input-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none;z-index:1}
+.input-with-icon{padding-left:40px !important}
+.input-action{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--t3);font-size:16px;transition:color .15s;z-index:1}
+.input-action:hover{color:var(--t)}
+.signin-btn{width:100%;justify-content:center;padding:14px;font-size:15px;border-radius:10px;position:relative;overflow:hidden;transition:all .2s}
+.signin-btn::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.12),transparent);pointer-events:none}
+.signin-btn:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(99,102,241,.5)}
+.signin-btn:active{transform:translateY(0)}
+.divider-line{display:flex;align-items:center;gap:10px;margin:20px 0;color:var(--t4);font-size:11px;text-transform:uppercase;letter-spacing:.8px}
+.divider-line::before,.divider-line::after{content:'';flex:1;height:1px;background:var(--bd2)}
+/* Art grid */
+.art-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:32px 0}
+.art-card{background:var(--bg2);border:1px solid var(--bd);border-radius:14px;padding:18px 14px;text-align:center;transition:transform .3s}
+.art-card:hover{transform:translateY(-4px)}
+.art-card-icon{font-size:26px;margin-bottom:8px}
+.art-card-label{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px}
+.art-card-val{font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--t);margin-top:2px}
+/* Loading state */
+.btn-loading{pointer-events:none;opacity:.8}
+.btn-loading .btn-txt{opacity:0}
+.btn-loading .btn-spin{display:flex !important}
+.btn-spin{display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);align-items:center;gap:8px}
+/* Shake animation for error */
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+.shake{animation:shake .4s ease}
+@media(max-width:768px){
+  .login-left{display:none}
+  .login-right{width:100%;border-left:none;background:var(--bg)}
+}
+</style>
+
+<div class="login-root">
+
+  <!-- Left decorative panel -->
+  <div class="login-left">
+    <div class="login-art">
+      <div style="font-size:56px;margin-bottom:12px">🍽</div>
+      <h2 style="font-size:28px;font-weight:800;letter-spacing:-.5px;margin-bottom:10px">{{ app_name }}</h2>
+      <p style="color:var(--t3);font-size:14px;line-height:1.7;max-width:360px;margin:0 auto 28px">
+        Track daily meals, manage expenses, and keep your mess running smoothly — all in one place.
+      </p>
+
+      <div class="art-grid">
+        <div class="art-card">
+          <div class="art-card-icon">🍛</div>
+          <div class="art-card-label">Daily Meals</div>
+          <div class="art-card-val">Tracked</div>
+        </div>
+        <div class="art-card">
+          <div class="art-card-icon">💰</div>
+          <div class="art-card-label">Deposits</div>
+          <div class="art-card-val">Managed</div>
+        </div>
+        <div class="art-card">
+          <div class="art-card-icon">📊</div>
+          <div class="art-card-label">Reports</div>
+          <div class="art-card-val">Monthly</div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;color:var(--t3);font-size:12px">
+        <span style="width:8px;height:8px;background:var(--green);border-radius:50%;display:inline-block;box-shadow:0 0 6px var(--green)"></span>
+        System Online
+      </div>
+    </div>
+  </div>
+
+  <!-- Right login form -->
+  <div class="login-right">
+    <div class="login-box">
+
+      <div class="brand-icon">🍽</div>
+      <div class="login-title">Welcome back</div>
+      <div class="login-sub">Sign in to your account to continue</div>
+
+      {% if messages %}
+      {% for msg in messages %}
+      <div class="alert alert-danger" id="error-alert" style="margin-bottom:20px">
+        <span>❌</span><span>{{ msg }}</span>
+      </div>
+      {% endfor %}
+      {% endif %}
+
+      <form method="post" id="login-form" onsubmit="handleSubmit(this)">
+        {% csrf_token %}
+
+        <div class="form-group">
+          <label class="form-label" for="mess-input">Mess ID / Name</label>
+          <div class="input-wrap">
+            <span class="input-icon">🏠</span>
+            <input id="mess-input" name="mess_id" type="text" class="form-control input-with-icon"
+                   placeholder="e.g. AB3K7Q or your mess name" required autofocus
+                   value="{{ mess_id|default:'' }}"
+                   style="font-size:15px;padding:13px 14px 13px 40px"
+                   oninput="clearError()">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="phone-input">Phone Number</label>
+          <div class="input-wrap">
+            <span class="input-icon">📱</span>
+            <input id="phone-input" name="phone" type="tel" class="form-control input-with-icon"
+                   placeholder="01XXXXXXXXX" required
+                   value="{{ phone|default:'' }}"
+                   style="font-size:15px;padding:13px 14px 13px 40px"
+                   oninput="clearError()">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:8px">
+          <label class="form-label" for="pwd-input">Password</label>
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
+            <input id="pwd-input" name="password" type="password" class="form-control input-with-icon"
+                   placeholder="Enter your password" required
+                   style="font-size:15px;padding:13px 44px 13px 40px"
+                   oninput="clearError()">
+            <button type="button" id="eye-btn" class="input-action" onclick="togglePwd()" title="Show/hide password">👁</button>
+          </div>
+        </div>
+
+        <!-- Caps lock warning -->
+        <div id="caps-warn" style="display:none;font-size:11px;color:var(--amber);margin-bottom:10px">
+          ⚠️ Caps Lock is on
+        </div>
+
+        <div style="margin-bottom:24px"></div>
+
+        <button type="submit" class="btn btn-primary signin-btn" id="submit-btn">
+          <span class="btn-txt">Sign In →</span>
+          <span class="btn-spin">
+            <span class="spinner" style="border-top-color:#fff"></span>
+            <span style="font-size:13px">Signing in…</span>
+          </span>
+        </button>
+
+      </form>
+
+      <div class="divider-line">or</div>
+
+      <div style="background:var(--bg3);border:1px solid var(--bd);border-radius:10px;padding:14px 16px;display:flex;align-items:flex-start;gap:10px">
+        <span style="font-size:18px">ℹ️</span>
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:2px">Need access?</div>
+          <div style="font-size:12px;color:var(--t3)">Contact your Mess Manager to get your phone number registered and receive your password and Mess ID.</div>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;text-align:center;font-size:13px;color:var(--t3)">
+        Starting a new mess? <a href="{% url 'register_mess' %}" style="color:var(--accent);font-weight:600;text-decoration:none">Register your mess →</a>
+      </div>
+
+      <div style="margin-top:24px;text-align:center">
+        <button onclick="toggleTheme()" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:12px;display:inline-flex;align-items:center;gap:6px" id="theme-toggle-btn">
+          <span id="theme-ico">🌙</span> Switch to light mode
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// Theme init
+(function(){
+  const t = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  const ico = document.getElementById('theme-ico');
+  const btn = document.getElementById('theme-toggle-btn');
+  if (ico) ico.textContent = t === 'dark' ? '🌙' : '☀️';
+  if (btn) btn.lastChild.textContent = t === 'dark' ? ' Switch to light mode' : ' Switch to dark mode';
+})();
+
+function toggleTheme() {
+  const c = document.documentElement.getAttribute('data-theme');
+  const n = c === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', n);
+  localStorage.setItem('theme', n);
+  const ico = document.getElementById('theme-ico');
+  const btn = document.getElementById('theme-toggle-btn');
+  if (ico) ico.textContent = n === 'dark' ? '🌙' : '☀️';
+  if (btn) btn.lastChild.textContent = n === 'dark' ? ' Switch to light mode' : ' Switch to dark mode';
+}
+
+function togglePwd() {
+  const i = document.getElementById('pwd-input');
+  const b = document.getElementById('eye-btn');
+  i.type = i.type === 'password' ? 'text' : 'password';
+  b.textContent = i.type === 'password' ? '👁' : '🙈';
+}
+
+function clearError() {
+  const a = document.getElementById('error-alert');
+  if (a) a.style.opacity = '0.5';
+}
+
+function handleSubmit(form) {
+  const btn = document.getElementById('submit-btn');
+  btn.classList.add('btn-loading');
+  // Let the form submit naturally; loading state shows until page reloads
+}
+
+// Caps lock detection
+document.getElementById('pwd-input').addEventListener('keydown', function(e) {
+  const caps = e.getModifierState && e.getModifierState('CapsLock');
+  document.getElementById('caps-warn').style.display = caps ? 'flex' : 'none';
+});
+document.getElementById('pwd-input').addEventListener('keyup', function(e) {
+  const caps = e.getModifierState && e.getModifierState('CapsLock');
+  document.getElementById('caps-warn').style.display = caps ? 'flex' : 'none';
+});
+
+// Shake form on error message present
+window.addEventListener('DOMContentLoaded', function() {
+  if (document.getElementById('error-alert')) {
+    const box = document.querySelector('.login-box');
+    box.style.animation = 'shake .4s ease';
+    setTimeout(() => box.style.animation = '', 400);
+    document.getElementById('phone-input').focus();
+  }
+});
+</script>
+{% endblock %}

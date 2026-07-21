@@ -1,0 +1,288 @@
+{% extends 'base.html' %}
+{% load perm_tags %}
+{% block title %}Dashboard — {{ app_name }}{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_sub %}{{ month_name }} {{ year }}{% endblock %}
+
+{% block content %}
+
+<!-- ── NON-CURRENT MONTH BANNER ──────────────────────────── -->
+{% if not viewing_current_month %}
+<div style="
+  display:flex;align-items:center;gap:14px;
+  background:var(--amber-soft);border:1.5px solid var(--amber);
+  border-radius:12px;padding:14px 18px;margin-bottom:20px;flex-wrap:wrap;gap:12px
+">
+  <span style="font-size:22px">📅</span>
+  <div style="flex:1">
+    <div style="font-weight:700;color:var(--amber)">Viewing {{ month_name }} {{ year }}</div>
+    <div style="font-size:12px;color:var(--t2);margin-top:2px">
+      You are viewing historical data. Today is <strong>{{ today|date:"d M Y" }}</strong>.
+      All figures below are for <strong>{{ month_name }} {{ year }}</strong>.
+    </div>
+  </div>
+  <form method="post" action="/meals/settings/" style="flex-shrink:0">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="set_active">
+    <input type="hidden" name="new_month" value="{{ today.month }}">
+    <input type="hidden" name="new_year" value="{{ today.year }}">
+    <button type="submit" class="btn btn-ghost btn-sm" style="border-color:var(--amber);color:var(--amber)">
+      ↩ Back to Current Month
+    </button>
+  </form>
+</div>
+{% endif %}
+
+<!-- STAT CARDS -->
+<div class="stat-grid">
+  <div class="stat-card green">
+    <div class="stat-icon">👥</div>
+    <div class="stat-label">Active Members</div>
+    <div class="stat-val green">{{ active_members }}</div>
+    <div class="stat-sub">Registered in system</div>
+  </div>
+  <div class="stat-card blue">
+    <div class="stat-icon">🍽</div>
+    {% if viewing_current_month %}
+      <div class="stat-label">Today's Meals</div>
+      <div class="stat-val blue">{{ today_meals|floatformat:1 }}</div>
+      <div class="stat-sub">{{ today|date:"d M Y" }}</div>
+    {% else %}
+      <div class="stat-label">Day {{ active_month_day_label.day }} Meals</div>
+      <div class="stat-val blue">{{ active_month_day_meals|floatformat:1 }}</div>
+      <div class="stat-sub">{{ active_month_day_label|date:"d M Y" }}</div>
+    {% endif %}
+  </div>
+  <div class="stat-card purple">
+    <div class="stat-icon">📊</div>
+    <div class="stat-label">Monthly Meals</div>
+    <div class="stat-val purple">{{ total_meals|floatformat:1 }}</div>
+    <div class="stat-sub">Effective this month</div>
+  </div>
+  <div class="stat-card amber">
+    <div class="stat-icon">📈</div>
+    <div class="stat-label">Meal Rate</div>
+    <div class="stat-val amber">৳{{ meal_rate }}</div>
+    <div class="stat-sub">Per effective meal</div>
+  </div>
+  <div class="stat-card cyan">
+    <div class="stat-icon">💰</div>
+    <div class="stat-label">Total Deposit</div>
+    <div class="stat-val cyan">৳{{ total_deposit|floatformat:0 }}</div>
+    <div class="stat-sub">{{ month_name }}</div>
+  </div>
+  <div class="stat-card red">
+    <div class="stat-icon">🛒</div>
+    <div class="stat-label">Total Expense</div>
+    <div class="stat-val red">৳{{ total_expense|floatformat:0 }}</div>
+    <div class="stat-sub">{{ month_name }}</div>
+  </div>
+  <div class="stat-card {% if fund_balance >= 0 %}green{% else %}red{% endif %}">
+    <div class="stat-icon">{% if fund_balance >= 0 %}✅{% else %}⚠️{% endif %}</div>
+    <div class="stat-label">Fund Balance</div>
+    <div class="stat-val {% if fund_balance >= 0 %}green{% else %}red{% endif %}">
+      ৳{{ fund_balance|floatformat:0 }}
+    </div>
+    <div class="stat-sub">{% if fund_balance >= 0 %}Surplus{% else %}Deficit{% endif %}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">🔧</div>
+    <div class="stat-label">Cooking Cost</div>
+    <div class="stat-val accent">৳{{ cooking_cost }}</div>
+    <div class="stat-sub">Per member / month</div>
+  </div>
+</div>
+
+<!-- QUICK ACTIONS -->
+<div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+  <a href="/meals/" class="btn btn-primary btn-sm">✅ Mark Meals</a>
+  {% if user_member|has_perm:"deposit_entry" or user_member.is_manager %}
+  <a href="/finance/deposits/" class="btn btn-ghost btn-sm">💰 Add Deposit</a>
+  {% endif %}
+  {% if user_member|has_perm:"bazar_entry" or user_member.is_manager %}
+  <a href="/finance/expenses/" class="btn btn-ghost btn-sm">🛒 Add Expense</a>
+  {% endif %}
+  {% if user_member.is_manager or user_member|has_perm:"view_reports" %}
+  <a href="/reports/monthly/" class="btn btn-ghost btn-sm">📋 Monthly Report</a>
+  {% endif %}
+</div>
+
+<!-- CHARTS + ANNOUNCEMENTS -->
+<div class="grid-2" style="margin-bottom:20px">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">📉 7-Day Meals & Expenses</div>
+      <a href="/reports/analytics/" class="btn btn-ghost btn-xs">Analytics →</a>
+    </div>
+    <canvas id="lineChart" height="200"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">📢 Announcements</div>
+      <a href="/meals/announcements/" class="btn btn-ghost btn-xs">View All</a>
+    </div>
+    {% if announcements %}
+      {% for ann in announcements %}
+      <div class="ann-{{ ann.priority }}" style="background:var(--bg3);border-radius:9px;padding:12px 14px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:8px">
+          <span style="font-weight:600;font-size:13px">{{ ann.title }}</span>
+          <span class="badge {% if ann.priority == 'urgent' %}badge-red{% elif ann.priority == 'high' %}badge-amber{% else %}badge-blue{% endif %}" style="font-size:10px;flex-shrink:0">{{ ann.get_priority_display }}</span>
+        </div>
+        <p style="font-size:12px;color:var(--t2)">{{ ann.body|truncatewords:20 }}</p>
+        <div style="font-size:10px;color:var(--t3);margin-top:6px">{{ ann.created_at|timesince }} ago · {{ ann.posted_by.name|default:"Manager" }}</div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:30px">
+        <div class="empty-icon" style="font-size:32px;margin-bottom:8px">📭</div>
+        <div class="empty-sub">No announcements</div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- MEMBER SUMMARY TABLE -->
+<div style="margin-bottom:24px">
+  <div class="section-hdr">
+    <div>
+      <div class="section-title">👥 Member Summary — {{ month_name }} {{ year }}</div>
+      <div class="section-sub">Meals, costs, deposits and balances for each member</div>
+    </div>
+    {% if user_member.is_manager or user_member|has_perm:"view_reports" %}
+    <a href="/reports/monthly/" class="btn btn-ghost btn-sm">Full Report →</a>
+    {% endif %}
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>Member</th><th>Room</th>
+          <th>Eff. Meals</th><th>Total Cost</th>
+          <th>Deposited</th><th>Balance</th><th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in member_summary %}
+        <tr>
+          <td class="mono text-muted" style="font-size:12px">{{ forloop.counter }}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:9px">
+              <div class="avatar" style="background:{{ s.member.avatar_color }};width:30px;height:30px;font-size:11px">{{ s.member.initials }}</div>
+              <div>
+                <div class="td-name">{{ s.member.name }}</div>
+                <div style="font-size:11px;color:var(--t3)">{{ s.member.phone }}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            {% if s.member.room_number %}
+            <span class="badge badge-gray">{{ s.member.room_number }}</span>
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td class="mono">{{ s.meals|floatformat:1 }}</td>
+          <td class="mono">৳{{ s.cost|floatformat:2 }}</td>
+          <td class="mono">৳{{ s.deposit|floatformat:2 }}</td>
+          <td class="mono fw-700" style="color:{% if s.balance >= 0 %}var(--green){% else %}var(--red){% endif %}">
+            {% if s.balance >= 0 %}+{% endif %}৳{{ s.balance|floatformat:2 }}
+          </td>
+          <td>
+            {% if s.balance >= 0 %}
+              <span class="badge badge-green">✓ Clear</span>
+            {% else %}
+              <span class="badge badge-red">⚠ Due</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="/finance/statement/{{ s.member.pk }}/" class="btn btn-ghost btn-xs">Statement</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" style="text-align:center;padding:40px;color:var(--t3)">No members yet</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if user_member.is_manager or user_member.is_sub_manager %}
+<!-- RECENT ACTIVITY -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">📜 Recent Activity</div>
+    {% if user_member.is_manager or user_member.is_sub_manager %}
+    <a href="/activity-log/" class="btn btn-ghost btn-xs">View All</a>
+    {% endif %}
+  </div>
+  <div style="display:flex;flex-direction:column;gap:2px">
+    {% for log in recent_logs %}
+    <div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--bd)">
+      <div class="avatar" style="background:{% if log.member %}{{ log.member.avatar_color }}{% else %}var(--bg5){% endif %};width:28px;height:28px;font-size:10px;flex-shrink:0">
+        {% if log.member %}{{ log.member.initials }}{% else %}?{% endif %}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ log.action }}</div>
+        <div style="font-size:11px;color:var(--t3)">
+          {% if log.member %}{{ log.member.name }} · {% endif %}{{ log.timestamp|timesince }} ago
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div style="padding:20px 0;color:var(--t3);font-size:13px">No activity yet.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+const gc = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
+const tc = isDark ? '#5a6272' : '#94a3b8';
+const days  = {{ chart_days|safe }};
+const meals = {{ chart_meals|safe }};
+const exps  = {{ chart_exp|safe }};
+const ctx   = document.getElementById('lineChart').getContext('2d');
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: days,
+    datasets: [
+      {
+        label: 'Effective Meals',
+        data: meals,
+        borderColor: '#6366f1',
+        backgroundColor: 'rgba(99,102,241,.1)',
+        tension: .4, fill: true, pointRadius: 4, pointHoverRadius: 6,
+      },
+      {
+        label: 'Expense (÷100)',
+        data: exps.map(v => +(v/100).toFixed(2)),
+        borderColor: '#f59e0b',
+        backgroundColor: 'rgba(245,158,11,.07)',
+        tension: .4, fill: false, pointRadius: 4,
+        borderDash: [5,3],
+      },
+    ]
+  },
+  options: {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { color: tc, font: { size: 11, family: 'Inter' } } },
+      tooltip: { backgroundColor: isDark ? '#22262f' : '#fff',
+                  borderColor: isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.1)',
+                  borderWidth: 1, titleColor: isDark ? '#e8eaf0' : '#0f172a',
+                  bodyColor: tc },
+    },
+    scales: {
+      x: { grid: { color: gc }, ticks: { color: tc, font: { size: 11 } } },
+      y: { grid: { color: gc }, ticks: { color: tc, font: { size: 11 } } },
+    },
+  }
+});
+</script>
+{% endblock %}

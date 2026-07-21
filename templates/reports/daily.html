@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+{% load perm_tags %}
+{% block title %}Daily Report — {{ date }}{% endblock %}
+{% block nav_rdaily %}active{% endblock %}
+{% block page_title %}Daily Report{% endblock %}
+{% block page_sub %}{{ date|date:"l, d F Y" }} — all activities{% endblock %}
+{% block content %}
+<div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
+  <input type="date" id="date-picker" class="form-control" style="width:180px"
+         value="{{ date }}" onchange="changeDate()">
+  <button class="btn btn-ghost btn-sm"
+    onclick="document.getElementById('date-picker').value=new Date().toISOString().split('T')[0];changeDate()">
+    Today
+  </button>
+  <div style="margin-left:auto;display:flex;gap:8px">
+    <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨️ Print</button>
+  </div>
+</div>
+
+<!-- SUMMARY -->
+<div class="stat-grid" style="margin-bottom:24px">
+  <div class="stat-card blue">
+    <div class="stat-icon">🍽</div>
+    <div class="stat-label">Effective Meals</div>
+    <div class="stat-val blue">{{ total_meals|floatformat:1 }}</div>
+    <div class="stat-sub">{{ marks|length }} members ate</div>
+  </div>
+  <div class="stat-card red">
+    <div class="stat-icon">🛒</div>
+    <div class="stat-label">Total Expense</div>
+    <div class="stat-val red">৳{{ total_expense|floatformat:2 }}</div>
+    <div class="stat-sub">{{ expenses|length }} entr{{ expenses|length|pluralize:"y,ies" }}</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-icon">💰</div>
+    <div class="stat-label">Total Deposit</div>
+    <div class="stat-val green">৳{{ total_deposit|floatformat:2 }}</div>
+    <div class="stat-sub">{{ deposits|length }} payment{{ deposits|length|pluralize }}</div>
+  </div>
+  <div class="stat-card amber">
+    <div class="stat-icon">📅</div>
+    <div class="stat-label">Date</div>
+    <div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;margin-top:6px">{{ date|date:"d M Y" }}</div>
+    <div class="stat-sub">{{ date|date:"l" }}</div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <!-- LEFT COLUMN -->
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <!-- MEAL MARKS -->
+    <div>
+      <div class="section-hdr"><div class="section-title">🍽 Meal Marks</div></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th style="color:#f97316">Morning</th>
+              <th style="color:var(--accent)">Lunch</th>
+              <th style="color:#8b5cf6">Dinner</th>
+              <th>Total</th>
+              <th>Effective</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for mk in marks %}
+            <tr>
+              <td>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div class="avatar" style="background:{{ mk.member.avatar_color }};width:26px;height:26px;font-size:10px">{{ mk.member.initials }}</div>
+                  <span class="td-name">{{ mk.member.name }}</span>
+                </div>
+              </td>
+              <td class="mono" style="color:#f97316">{{ mk.morning }}</td>
+              <td class="mono" style="color:var(--accent)">{{ mk.lunch }}</td>
+              <td class="mono" style="color:#8b5cf6">{{ mk.dinner }}</td>
+              <td class="mono fw-700">{{ mk.count }}</td>
+              <td class="mono" style="color:var(--accent)">{{ mk.effective_count|floatformat:2 }}</td>
+              <td class="text-muted text-sm">{{ mk.note|default:"—" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--t3)">No meals recorded</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- DEPOSITS -->
+    <div>
+      <div class="section-hdr"><div class="section-title">💰 Deposits</div></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Member</th><th>Amount</th><th>Method</th><th>Note</th></tr></thead>
+          <tbody>
+            {% for d in deposits %}
+            <tr>
+              <td>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div class="avatar" style="background:{{ d.member.avatar_color }};width:26px;height:26px;font-size:10px">{{ d.member.initials }}</div>
+                  <span class="td-name">{{ d.member.name }}</span>
+                </div>
+              </td>
+              <td class="mono fw-700" style="color:var(--green)">৳{{ d.amount }}</td>
+              <td><span class="badge badge-blue">{{ d.get_method_display }}</span></td>
+              <td class="text-muted text-sm">{{ d.note|default:"—" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" style="text-align:center;padding:24px;color:var(--t3)">No deposits</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN -->
+  <div>
+    <div class="section-hdr"><div class="section-title">🛒 Expenses</div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Amount</th><th>Category</th><th>Description</th><th>Bought By</th></tr></thead>
+        <tbody>
+          {% for e in expenses %}
+          <tr>
+            <td class="mono fw-700" style="color:var(--red)">৳{{ e.amount }}</td>
+            <td><span class="badge badge-amber">{{ e.get_category_display }}</span></td>
+            <td class="text-sm">{{ e.description|default:"—" }}</td>
+            <td class="text-muted text-sm">{{ e.bought_by.name|default:"—" }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" style="text-align:center;padding:24px;color:var(--t3)">No expenses</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function changeDate() {
+  location.href = `/reports/daily/?date=${document.getElementById('date-picker').value}`;
+}
+</script>
+{% endblock %}

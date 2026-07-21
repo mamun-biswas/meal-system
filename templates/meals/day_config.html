@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+{% load perm_tags %}
+{% block title %}Special Meal Entry{% endblock %}
+{% block nav_dayconfig %}active{% endblock %}
+{% block page_title %}Special Meal Entry{% endblock %}
+{% block page_sub %}Configure special meal multipliers per day{% endblock %}
+{% block content %}
+<div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
+  <select id="sel-month" class="form-control" style="width:145px" onchange="changeMonthYear()">
+    {% for mn,mn2 in months %}<option value="{{ mn }}"{% if mn == month %} selected{% endif %}>{{ mn2 }}</option>{% endfor %}
+  </select>
+  <select id="sel-year" class="form-control" style="width:88px" onchange="changeMonthYear()">
+    {% for y in years %}<option value="{{ y }}"{% if y == year %} selected{% endif %}>{{ y }}</option>{% endfor %}
+  </select>
+  <span class="badge badge-accent" style="font-size:12px">{{ month_name }} {{ year }}</span>
+  {% if can_edit %}
+  <button class="btn btn-primary" style="margin-left:auto" onclick="openModal('modal-add-cfg')">+ Add Special Day</button>
+  {% endif %}
+</div>
+
+<div class="alert alert-info" style="margin-bottom:20px">
+  <span style="font-size:18px">ℹ️</span>
+  <div>
+    <strong>Special Day Multiplier</strong> — changes how meals are counted in cost calculations, per meal type.<br>
+    <span style="font-size:12px">Example: Dinner multiplier = 2 → if a member marks 1 dinner, it counts as <strong>2 effective meals</strong> for dinner. Morning and Lunch stay at their own multipliers. Normal days use ×1.0 for all three.</span>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th><th>Morning ×</th><th>Lunch ×</th><th>Dinner ×</th><th>Label / Event</th><th>Note</th>
+        <th>Set By</th>{% if can_edit %}<th></th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in configs %}
+      <tr id="cfg-row-{{ c.pk }}">
+        <td class="mono">{{ c.date }}</td>
+        <td>
+          {% if c.morning_multiplier != 1.00 %}
+          <span class="badge badge-amber" style="font-size:13px;padding:4px 12px">⚡ ×{{ c.morning_multiplier }}</span>
+          {% else %}
+          <span class="badge badge-gray">×{{ c.morning_multiplier }}</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if c.lunch_multiplier != 1.00 %}
+          <span class="badge badge-amber" style="font-size:13px;padding:4px 12px">⚡ ×{{ c.lunch_multiplier }}</span>
+          {% else %}
+          <span class="badge badge-gray">×{{ c.lunch_multiplier }}</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if c.dinner_multiplier != 1.00 %}
+          <span class="badge badge-amber" style="font-size:13px;padding:4px 12px">⚡ ×{{ c.dinner_multiplier }}</span>
+          {% else %}
+          <span class="badge badge-gray">×{{ c.dinner_multiplier }}</span>
+          {% endif %}
+        </td>
+        <td style="font-weight:500">{{ c.label|default:"—" }}</td>
+        <td class="text-muted text-sm">{{ c.note|default:"—"|truncatechars:60 }}</td>
+        <td class="text-muted text-sm">{{ c.created_by.name|default:"—" }}</td>
+        {% if can_edit %}
+        <td><button class="btn btn-danger btn-xs" onclick="deleteCfg({{ c.pk }})">✕ Delete</button></td>
+        {% endif %}
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="8">
+          <div class="empty-state">
+            <div class="empty-icon">⚙️</div>
+            <div class="empty-title">No special days for {{ month_name }} {{ year }}</div>
+            <div class="empty-sub">All days use multiplier ×1.0 by default</div>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if can_edit %}
+<div class="modal-overlay" id="modal-add-cfg">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">⚡ Add Special Day</div>
+      <button class="modal-close" onclick="closeModal('modal-add-cfg')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-warning">
+        <span>⚠️</span>
+        <span>This affects <strong>all members'</strong> effective meal count for the chosen meal type on this date, retroactively.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date *</label>
+        <input type="date" id="cfg-date" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Meal Type *</label>
+        <select id="cfg-meal-type" class="form-control" onchange="syncMealTypeColor()">
+          <option value="morning">🌅 Morning</option>
+          <option value="lunch" selected>☀️ Lunch</option>
+          <option value="dinner">🌙 Dinner</option>
+        </select>
+        <div class="form-hint">Choose which meal this special multiplier applies to. The other two meal types stay at ×1.0 for this day.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Multiplier *</label>
+        <input type="number" id="cfg-multi" class="form-control" value="2.0" min="0.5" max="10" step="0.5">
+        <div class="form-hint">e.g. 2.0 → each meal of the chosen type entered = 2 effective meals in cost calculation.</div>
+      </div>
+      <div style="display:flex;gap:8px;margin:6px 0 4px;flex-wrap:wrap">
+        <button type="button" class="btn btn-ghost btn-xs" onclick="document.getElementById('cfg-multi').value=1.5">×1.5</button>
+        <button type="button" class="btn btn-ghost btn-xs" onclick="document.getElementById('cfg-multi').value=2.0">×2.0</button>
+        <button type="button" class="btn btn-ghost btn-xs" onclick="document.getElementById('cfg-multi').value=3.0">×3.0</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Label / Event Name</label>
+        <input type="text" id="cfg-label" class="form-control" placeholder="e.g. Special Feast, Holiday, Eid">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Note</label>
+        <textarea id="cfg-note" class="form-control" rows="2" placeholder="Optional details"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-cfg')">Cancel</button>
+      <button class="btn btn-primary" id="cfg-save-btn" onclick="saveCfg()">⚡ Save Configuration</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function changeMonthYear() {
+  location.href = `/meals/day-config/?month=${document.getElementById('sel-month').value}&year=${document.getElementById('sel-year').value}`;
+}
+// Default date to today
+(function(){ const el = document.getElementById('cfg-date'); if(el) el.value = new Date().toISOString().split('T')[0]; })();
+
+const MEAL_TYPE_COLORS = { morning: '#f97316', lunch: 'var(--accent)', dinner: '#8b5cf6' };
+function syncMealTypeColor() {
+  const sel = document.getElementById('cfg-meal-type');
+  const multiInput = document.getElementById('cfg-multi');
+  if (sel && multiInput) multiInput.style.borderColor = MEAL_TYPE_COLORS[sel.value] || '';
+}
+syncMealTypeColor();
+
+async function saveCfg() {
+  const date     = document.getElementById('cfg-date').value;
+  const mealType = document.getElementById('cfg-meal-type').value; // morning | lunch | dinner
+  const multi    = parseFloat(document.getElementById('cfg-multi').value);
+  const label    = document.getElementById('cfg-label').value.trim();
+  const note     = document.getElementById('cfg-note').value.trim();
+  if (!date) { toast('Error','Please select a date','error'); return; }
+  if (!multi || multi <= 0) { toast('Error','Multiplier must be greater than 0','error'); return; }
+
+  const payload = {
+    date, label, note,
+    morning_multiplier: mealType === 'morning' ? multi : 1.0,
+    lunch_multiplier:   mealType === 'lunch'   ? multi : 1.0,
+    dinner_multiplier:  mealType === 'dinner'  ? multi : 1.0,
+  };
+
+  const btn = document.getElementById('cfg-save-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    await apiCall('/meals/day-config/save/', 'POST', payload);
+    toast('Saved!', `Day ${date} — ${mealType} ×${multi}`, 'success');
+    closeModal('modal-add-cfg');
+    setTimeout(() => location.reload(), 900);
+  } catch(e) { toast('Error', e.message, 'error'); }
+  btn.disabled = false; btn.innerHTML = '⚡ Save Configuration';
+}
+
+async function deleteCfg(pk) {
+  if (!confirm('Remove this special day configuration? This will revert to ×1.0 for that day.')) return;
+  try {
+    await apiCall(`/meals/day-config/${pk}/delete/`, 'DELETE');
+    const row = document.getElementById(`cfg-row-${pk}`);
+    if (row) { row.style.opacity = '.3'; setTimeout(() => row.remove(), 300); }
+    toast('Deleted', 'Day configuration removed', 'success');
+  } catch(e) { toast('Error', e.message, 'error'); }
+}
+</script>
+{% endblock %}

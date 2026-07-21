@@ -1,0 +1,282 @@
+{% extends 'base.html' %}
+{% block title %}Update Meal History{% endblock %}
+{% block page_title %}✏️ Update Meal History{% endblock %}
+{% block page_sub %}Correct or edit a member's meal entries for any past date{% endblock %}
+{% block nav_update_history %}active{% endblock %}
+{% block content %}
+
+<div style="max-width:900px">
+
+  <!-- Lookup Card -->
+  <div class="card" style="margin-bottom:24px">
+    <div class="card-header">
+      <div>
+        <div class="card-title">🔍 Select Member & Date</div>
+        <div class="text-muted text-sm mt-2">Choose a member and a date to view or update their meals.</div>
+      </div>
+    </div>
+    <form method="get" action="/meals/update-history/">
+      <div class="form-row" style="align-items:flex-end">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Member</label>
+          <select name="member_id" class="form-control" required>
+            <option value="">— Select Member —</option>
+            {% for m in members %}
+            <option value="{{ m.id }}" {% if selected_member and selected_member.id == m.id %}selected{% endif %}>
+              {{ m.name }} {% if m.room_number %}(Room {{ m.room_number }}){% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Date</label>
+          <input type="date" name="date" class="form-control"
+                 value="{{ selected_date|date:'Y-m-d' }}"
+                 max="{{ today|date:'Y-m-d' }}" required>
+        </div>
+        <div style="padding-bottom:0">
+          <button type="submit" class="btn btn-primary" style="height:42px">🔍 Look Up</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  {% if selected_member and selected_date %}
+  <!-- Current Status -->
+  <div class="card" style="margin-bottom:24px;border:1px solid {% if current_mark %}var(--accent){% else %}var(--bd){% endif %}">
+    <div class="card-header">
+      <div>
+        <div class="card-title">
+          <div class="avatar" style="background:{{ selected_member.avatar_color }};display:inline-flex;width:28px;height:28px;font-size:11px;vertical-align:middle;margin-right:8px">{{ selected_member.initials }}</div>
+          {{ selected_member.name }} — {{ selected_date|date:"l, d M Y" }}
+        </div>
+      </div>
+      {% if current_mark %}
+      <span class="badge badge-accent">Current: {{ current_mark.count }} total meals</span>
+      {% else %}
+      <span class="badge badge-gray">No record for this date</span>
+      {% endif %}
+    </div>
+
+    {% if current_mark %}
+    <div class="alert alert-info" style="margin-bottom:16px">
+      <span>ℹ️</span>
+      <span>
+        Current record: <strong>Morning {{ current_mark.morning }}</strong> · <strong>Lunch {{ current_mark.lunch }}</strong> · <strong>Dinner {{ current_mark.dinner }}</strong>
+        = <strong>{{ current_mark.count }} total</strong> on <strong>{{ selected_date|date:"d M Y" }}</strong>.
+        {% if current_mark.marked_by %}Marked by {{ current_mark.marked_by.name }}.{% endif %}
+        Last updated: {{ current_mark.updated_at|date:"d M Y H:i" }}.
+      </span>
+    </div>
+    {% else %}
+    <div class="alert alert-warning" style="margin-bottom:16px">
+      <span>⚠️</span>
+      <span>No meal record found for <strong>{{ selected_member.name }}</strong> on <strong>{{ selected_date|date:"d M Y" }}</strong>. You can create one below.</span>
+    </div>
+    {% endif %}
+
+    <form method="post" action="/meals/update-history/" id="save-form">
+      {% csrf_token %}
+      <input type="hidden" name="member_id" value="{{ selected_member.id }}">
+      <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+      <input type="hidden" name="save_meal" value="1">
+
+      <!-- Meal type legend -->
+      <div style="display:flex;gap:20px;margin-bottom:14px;font-size:12px">
+        <span style="display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#f97316"></span><strong>Morning</strong></span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--accent)"></span><strong>Lunch</strong></span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#8b5cf6"></span><strong>Dinner</strong></span>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-bottom:16px">
+        <!-- Morning -->
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label" style="color:#f97316;font-weight:700">🌅 Morning</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button type="button" onclick="adjustCount('morning',-1)" class="btn btn-ghost btn-sm" style="padding:8px 12px;font-size:16px">−</button>
+            <input type="number" name="morning" id="morning-input" class="form-control"
+                   value="{{ current_mark.morning|default:'0' }}"
+                   min="0" max="10" step="1"
+                   style="width:70px;text-align:center;font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;padding:8px;border-color:#f97316;color:#f97316"
+                   oninput="updateTotal()">
+            <button type="button" onclick="adjustCount('morning',1)" class="btn btn-ghost btn-sm" style="padding:8px 12px;font-size:16px">+</button>
+          </div>
+        </div>
+
+        <!-- Lunch -->
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label" style="color:var(--accent);font-weight:700">☀️ Lunch</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button type="button" onclick="adjustCount('lunch',-1)" class="btn btn-ghost btn-sm" style="padding:8px 12px;font-size:16px">−</button>
+            <input type="number" name="lunch" id="lunch-input" class="form-control"
+                   value="{{ current_mark.lunch|default:'0' }}"
+                   min="0" max="10" step="1"
+                   style="width:70px;text-align:center;font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;padding:8px;border-color:var(--accent);color:var(--accent)"
+                   oninput="updateTotal()">
+            <button type="button" onclick="adjustCount('lunch',1)" class="btn btn-ghost btn-sm" style="padding:8px 12px;font-size:16px">+</button>
+          </div>
+        </div>
+
+        <!-- Dinner -->
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label" style="color:#8b5cf6;font-weight:700">🌙 Dinner</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button type="button" onclick="adjustCount('dinner',-1)" class="btn btn-ghost btn-sm" style="padding:8px 12px;font-size:16px">−</button>
+            <input type="number" name="dinner" id="dinner-input" class="form-control"
+                   value="{{ current_mark.dinner|default:'0' }}"
+                   min="0" max="10" step="1"
+                   style="width:70px;text-align:center;font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;padding:8px;border-color:#8b5cf6;color:#8b5cf6"
+                   oninput="updateTotal()">
+            <button type="button" onclick="adjustCount('dinner',1)" class="btn btn-ghost btn-sm" style="padding:8px 12px;font-size:16px">+</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Total display -->
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg3);border-radius:10px;border:1px solid var(--bd);margin-bottom:16px">
+        <span class="text-muted" style="font-size:13px">Total Meals:</span>
+        <span id="total-display" style="font-size:24px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--accent)">
+          {{ current_mark.count|default:'0' }}
+        </span>
+        <span class="text-muted text-sm">(M + L + D) — set all to 0 to remove record</span>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button type="submit" class="btn btn-primary" onclick="return confirmSave()">
+          💾 {% if current_mark %}Update{% else %}Add{% endif %} Meal
+        </button>
+        {% if current_mark %}
+        <button type="button" class="btn btn-danger" onclick="confirmDelete()">
+          🗑 Remove Record
+        </button>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+  {% endif %}
+
+  <!-- Recent History for selected member -->
+  {% if selected_member and recent_history %}
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">📋 Recent Meal History — {{ selected_member.name }}</div>
+      <span class="text-muted text-sm">Last {{ recent_history|length }} entries</span>
+    </div>
+    <div class="table-wrap" style="border:none;border-radius:0">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Day</th>
+            <th style="color:#f97316">Morning</th>
+            <th style="color:var(--accent)">Lunch</th>
+            <th style="color:#8b5cf6">Dinner</th>
+            <th>Total</th>
+            <th>Effective</th>
+            <th>Marked By</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for mk in recent_history %}
+          <tr>
+            <td class="td-mono">{{ mk.date|date:"d M Y" }}</td>
+            <td class="text-muted">{{ mk.date|date:"l" }}</td>
+            <td class="mono" style="color:#f97316">{{ mk.morning }}</td>
+            <td class="mono" style="color:var(--accent)">{{ mk.lunch }}</td>
+            <td class="mono" style="color:#8b5cf6">{{ mk.dinner }}</td>
+            <td>
+              <span class="badge badge-accent mono">{{ mk.count }}</span>
+            </td>
+            <td class="mono text-muted">{{ mk.effective_count|floatformat:2 }}</td>
+            <td class="text-muted text-sm">{{ mk.marked_by.name|default:"—" }}</td>
+            <td>
+              <a href="/meals/update-history/?member_id={{ selected_member.id }}&date={{ mk.date|date:'Y-m-d' }}"
+                 class="btn btn-ghost btn-xs">Edit</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% elif selected_member and not recent_history %}
+  <div class="card">
+    <div class="empty-state">
+      <div class="empty-icon">🍽</div>
+      <div class="empty-title">No meal history found</div>
+      <div class="empty-sub">{{ selected_member.name }} has no meal records yet.</div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if not selected_member %}
+  <div class="card">
+    <div class="empty-state">
+      <div class="empty-icon">✏️</div>
+      <div class="empty-title">Select a member and date</div>
+      <div class="empty-sub">Use the lookup form above to find and edit a meal record.</div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- Delete confirmation modal -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🗑 Remove Meal Record?</div>
+      <button class="modal-close" onclick="closeModal('delete-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-danger">
+        <span>⚠️</span>
+        <span>This will permanently remove the meal record for <strong>{% if selected_member %}{{ selected_member.name }}{% endif %}</strong> on <strong>{% if selected_date %}{{ selected_date|date:"d M Y" }}{% endif %}</strong>. This cannot be undone.</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('delete-modal')">Cancel</button>
+      <button class="btn btn-danger" onclick="submitDelete()">🗑 Remove</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function adjustCount(type, delta) {
+  const inp = document.getElementById(type + '-input');
+  let val = parseInt(inp.value) || 0;
+  val = Math.max(0, Math.min(10, val + delta));
+  inp.value = val;
+  updateTotal();
+}
+
+function updateTotal() {
+  const m = parseInt(document.getElementById('morning-input').value) || 0;
+  const l = parseInt(document.getElementById('lunch-input').value)   || 0;
+  const d = parseInt(document.getElementById('dinner-input').value)  || 0;
+  document.getElementById('total-display').textContent = m + l + d;
+}
+
+function confirmSave() {
+  const m = parseInt(document.getElementById('morning-input').value) || 0;
+  const l = parseInt(document.getElementById('lunch-input').value)   || 0;
+  const d = parseInt(document.getElementById('dinner-input').value)  || 0;
+  if (m + l + d === 0) {
+    return confirm('All values are 0 — this will remove the meal record. Continue?');
+  }
+  return true;
+}
+
+function confirmDelete() {
+  openModal('delete-modal');
+}
+
+function submitDelete() {
+  document.getElementById('morning-input').value = '0';
+  document.getElementById('lunch-input').value   = '0';
+  document.getElementById('dinner-input').value  = '0';
+  document.getElementById('save-form').submit();
+}
+</script>
+{% endblock %}

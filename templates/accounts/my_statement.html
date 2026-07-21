@@ -1,0 +1,312 @@
+{% extends 'base.html' %}
+{% load perm_tags %}
+{% block title %}My Statement — {{ target.name }}{% endblock %}
+{% block nav_my_statement %}active{% endblock %}
+{% block page_title %}My Meal Statement{% endblock %}
+{% block page_sub %}{{ target.name }} · {{ month_name }} {{ year }}{% endblock %}
+
+{% block content %}
+
+<!-- Month selector -->
+<div style="display:flex;gap:10px;align-items:center;margin-bottom:22px;flex-wrap:wrap">
+  <select id="sel-month" class="form-control" style="width:145px" onchange="changeMonth()">
+    {% for mn,mn2 in months %}<option value="{{ mn }}"{% if mn == month %} selected{% endif %}>{{ mn2 }}</option>{% endfor %}
+  </select>
+  <select id="sel-year" class="form-control" style="width:88px" onchange="changeMonth()">
+    {% for y in years %}<option value="{{ y }}"{% if y == year %} selected{% endif %}>{{ y }}</option>{% endfor %}
+  </select>
+  <span class="badge badge-accent" style="font-size:12px;padding:5px 14px">{{ month_name }} {{ year }}</span>
+  <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="window.print()">🖨️ Print</button>
+</div>
+
+<!-- Profile header -->
+<div class="card" style="margin-bottom:22px;background:linear-gradient(135deg,var(--bg2),var(--bg3))">
+  <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+    <div class="avatar xl" style="background:{{ target.avatar_color }};box-shadow:0 0 0 4px var(--accent-soft)">{{ target.initials }}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:24px;font-weight:800;letter-spacing:-.5px">{{ target.name }}</div>
+      <div style="color:var(--t2);margin-top:5px;display:flex;gap:16px;flex-wrap:wrap;font-size:13px">
+        <span>📱 {{ target.phone }}</span>
+        {% if target.room_number %}<span>🚪 Room {{ target.room_number }}</span>{% endif %}
+        <span>📅 Joined {{ target.joined_date }}</span>
+      </div>
+      <div style="margin-top:10px">
+        <span class="badge role-{{ target.role }}">{{ target.get_role_display }}</span>
+      </div>
+    </div>
+    <!-- Net balance -->
+    {% if mem_stat %}
+    <div style="text-align:center;background:var(--bg4);border-radius:14px;padding:18px 24px;flex-shrink:0">
+      <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:6px">Net Balance</div>
+      <div style="font-size:38px;font-weight:800;font-family:'JetBrains Mono',monospace;color:{% if mem_stat.balance >= 0 %}var(--green){% else %}var(--red){% endif %}">
+        {% if mem_stat.balance >= 0 %}+{% endif %}৳{{ mem_stat.balance|floatformat:2 }}
+      </div>
+      <div style="font-size:12px;margin-top:5px;font-weight:600;color:{% if mem_stat.balance >= 0 %}var(--green){% else %}var(--red){% endif %}">
+        {% if mem_stat.balance >= 0 %}✅ To Receive{% else %}⚠️ To Pay{% endif %}
+      </div>
+      {% if closing_record %}
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bd)">
+        {% if closing_record.verdict == 'paid' %}
+          <span class="badge badge-blue" style="font-size:12px;padding:5px 14px">💳 Paid</span>
+        {% elif closing_record.verdict == 'received' %}
+          <span class="badge badge-green" style="font-size:12px;padding:5px 14px">✅ Received</span>
+        {% elif closing_record.verdict == 'settled' %}
+          <span class="badge badge-gray" style="font-size:12px;padding:5px 14px">⚪ Settled</span>
+        {% else %}
+          <span class="badge badge-amber" style="font-size:12px;padding:5px 14px">⏳ Pending</span>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if mem_stat %}
+<!-- 4 quick stats -->
+<div class="stat-grid" style="margin-bottom:22px">
+  <div class="stat-card blue">
+    <div class="stat-icon">🍽</div>
+    <div class="stat-label">My Meals</div>
+    <div class="stat-val blue">{{ mem_stat.eff_meals|floatformat:1 }}</div>
+    <div class="stat-sub">Raw: {{ mem_stat.raw_meals|floatformat:1 }} · Effective: {{ mem_stat.eff_meals|floatformat:1 }}</div>
+  </div>
+  <div class="stat-card red">
+    <div class="stat-icon">📈</div>
+    <div class="stat-label">Meal Cost</div>
+    <div class="stat-val red">৳{{ mem_stat.meal_only_cost|floatformat:2 }}</div>
+    <div class="stat-sub">Rate ৳{{ stats.meal_rate }} × {{ mem_stat.eff_meals|floatformat:1 }} meals</div>
+  </div>
+  <div class="stat-card amber">
+    <div class="stat-icon">🔧</div>
+    <div class="stat-label">Cooking Cost</div>
+    <div class="stat-val amber">৳{{ mem_stat.cook_cost|floatformat:0 }}</div>
+    <div class="stat-sub">{% if mem_stat.cook_cost > 0 %}Charged (ate this month){% else %}Not charged (no meals){% endif %}</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-icon">💰</div>
+    <div class="stat-label">My Deposits</div>
+    <div class="stat-val green">৳{{ mem_stat.deposit|floatformat:2 }}</div>
+    <div class="stat-sub">{{ deposits|length }} payment{{ deposits|length|pluralize }}</div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Two column section -->
+<div class="grid-2" style="margin-bottom:22px">
+
+  <!-- LEFT: Deposit history -->
+  <div>
+    <div class="section-hdr">
+      <div><div class="section-title">💰 My Deposits</div><div class="section-sub">{{ deposits|length }} payment{{ deposits|length|pluralize }} in {{ month_name }}</div></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Date</th><th>Amount</th><th>Method</th><th>Note</th></tr></thead>
+        <tbody>
+          {% for d in deposits %}
+          <tr>
+            <td class="mono text-muted text-sm">{{ forloop.counter }}</td>
+            <td class="mono">{{ d.date }}</td>
+            <td class="mono fw-700" style="color:var(--green)">৳{{ d.amount|floatformat:2 }}</td>
+            <td>
+              <span class="badge
+                {% if d.method == 'cash' %}badge-green
+                {% elif d.method == 'bkash' %}badge-purple
+                {% elif d.method == 'nagad' %}badge-amber
+                {% elif d.method == 'rocket' %}badge-cyan
+                {% else %}badge-blue{% endif %}">
+                {{ d.get_method_display }}
+              </span>
+            </td>
+            <td class="text-muted text-sm">{{ d.note|default:"—" }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5">
+            <div class="empty-state" style="padding:30px">
+              <div class="empty-icon" style="font-size:28px">💸</div>
+              <div class="empty-title" style="font-size:13px">No deposits this month</div>
+            </div>
+          </td></tr>
+          {% endfor %}
+          {% if deposits %}
+          <tr style="background:var(--bg3)">
+            <td colspan="2" class="fw-700">Total</td>
+            <td class="mono fw-700" style="color:var(--green)">৳{{ mem_stat.deposit|floatformat:2 }}</td>
+            <td colspan="2"></td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- RIGHT: Meal record -->
+  <div>
+    <div class="section-hdr">
+      <div><div class="section-title">🍽 My Meal Record</div><div class="section-sub">{{ meal_marks|length }} days with meals in {{ month_name }}</div></div>
+    </div>
+    <div class="table-wrap" style="max-height:420px;overflow-y:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Day</th>
+            <th style="color:#f97316">Morning</th>
+            <th style="color:var(--accent)">Lunch</th>
+            <th style="color:#8b5cf6">Dinner</th>
+            <th>Total</th>
+            <th>Effective</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for mk in meal_marks %}
+          <tr>
+            <td class="mono text-sm">{{ mk.date }}</td>
+            <td class="text-muted text-sm">{{ mk.date|date:"D" }}</td>
+            <td class="mono" style="color:#f97316">{{ mk.morning }}</td>
+            <td class="mono" style="color:var(--accent)">{{ mk.lunch }}</td>
+            <td class="mono" style="color:#8b5cf6">{{ mk.dinner }}</td>
+            <td>
+              <span class="badge badge-accent" style="font-family:'JetBrains Mono',monospace">{{ mk.count }}</span>
+            </td>
+            <td class="mono" style="color:{% if mk.is_special_day %}var(--amber){% else %}var(--accent){% endif %}">
+              {{ mk.effective_count|floatformat:2 }}
+              {% if mk.is_special_day %}<span class="text-xs" style="color:var(--amber)"> ⚡</span>{% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7">
+            <div class="empty-state" style="padding:30px">
+              <div class="empty-icon" style="font-size:28px">🍽</div>
+              <div class="empty-title" style="font-size:13px">No meals recorded</div>
+            </div>
+          </td></tr>
+          {% endfor %}
+          {% if meal_marks %}
+          <tr style="background:var(--bg3)">
+            <td colspan="2" class="fw-700">Total</td>
+            <td></td><td></td><td></td>
+            <td class="mono fw-700" style="color:var(--accent)">{{ mem_stat.raw_meals|floatformat:1 }}</td>
+            <td class="mono fw-700" style="color:var(--accent)">{{ mem_stat.eff_meals|floatformat:2 }}</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Final Statement Card -->
+{% if mem_stat %}
+<div class="card" style="border:1.5px solid {% if mem_stat.balance >= 0 %}var(--green){% else %}var(--red){% endif %}">
+  <div class="card-header" style="margin-bottom:0">
+    <div class="card-title" style="font-size:16px">📋 Final Statement — {{ month_name }} {{ year }}</div>
+    <span class="badge {% if mem_stat.balance >= 0 %}badge-green{% else %}badge-red{% endif %}" style="font-size:13px;padding:5px 14px">
+      {% if mem_stat.balance >= 0 %}✅ You receive money{% else %}⚠️ You owe money{% endif %}
+    </span>
+  </div>
+  <hr class="divider">
+  <div style="max-width:500px">
+    <!-- Line items -->
+    <div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--bd)">
+      <span class="text-muted">Effective Meals ({{ mem_stat.raw_meals|floatformat:1 }} raw × multipliers)</span>
+      <span class="mono fw-600">{{ mem_stat.eff_meals|floatformat:2 }}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--bd)">
+      <span class="text-muted">Meal Rate</span>
+      <span class="mono">৳{{ stats.meal_rate }} / meal</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--bd)">
+      <span class="text-muted">Meal Cost ({{ mem_stat.eff_meals|floatformat:2 }} × ৳{{ stats.meal_rate }})</span>
+      <span class="mono">৳{{ mem_stat.meal_only_cost|floatformat:2 }}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--bd)">
+      <span class="text-muted">Cooking Cost</span>
+      <span class="mono">৳{{ mem_stat.cook_cost|floatformat:2 }}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:13px 0;border-bottom:2px solid var(--bd2);font-weight:700;font-size:14px">
+      <span>Total Charges</span>
+      <span class="mono" style="color:var(--red)">৳{{ mem_stat.cost|floatformat:2 }}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--bd);font-weight:600">
+      <span class="text-muted">Total Deposited</span>
+      <span class="mono fw-700" style="color:var(--green)">৳{{ mem_stat.deposit|floatformat:2 }}</span>
+    </div>
+    <!-- Final balance -->
+    <div style="display:flex;justify-content:space-between;padding:18px 0;font-size:20px;font-weight:800">
+      <span>Net Balance</span>
+      <span class="mono" style="color:{% if mem_stat.balance >= 0 %}var(--green){% else %}var(--red){% endif %}">
+        {% if mem_stat.balance >= 0 %}+{% endif %}৳{{ mem_stat.balance|floatformat:2 }}
+      </span>
+    </div>
+    <!-- Verdict -->
+    <div class="alert {% if mem_stat.balance >= 0 %}alert-success{% else %}alert-danger{% endif %}" style="margin-top:4px">
+      <span style="font-size:18px">{% if mem_stat.balance >= 0 %}✅{% else %}⚠️{% endif %}</span>
+      <div>
+        {% if mem_stat.balance >= 0 %}
+          <strong>Good news!</strong> You should <strong>receive ৳{{ mem_stat.balance|floatformat:2 }}</strong> back this month.
+        {% else %}
+          <strong>Action needed.</strong> You still <strong>owe ৳{{ mem_stat.balance|floatformat:2|slice:"1:" }}</strong> for this month.
+        {% endif %}
+      </div>
+    </div>
+    {% if closing_record and closing_record.verdict != 'pending' %}
+    <div style="margin-top:14px;padding:16px 18px;border-radius:12px;display:flex;align-items:center;gap:16px;
+      {% if closing_record.verdict == 'paid' %}background:rgba(99,102,241,.1);border:2px solid var(--accent)
+      {% elif closing_record.verdict == 'received' %}background:rgba(34,197,94,.1);border:2px solid var(--green)
+      {% else %}background:var(--bg3);border:2px solid var(--bd){% endif %}">
+      <div style="font-size:34px;line-height:1;flex-shrink:0">
+        {% if closing_record.verdict == 'paid' %}💳
+        {% elif closing_record.verdict == 'received' %}✅
+        {% else %}⚪{% endif %}
+      </div>
+      <div style="flex:1">
+        <div style="font-weight:800;font-size:16px;margin-bottom:4px">
+          {% if closing_record.verdict == 'paid' %}
+            You <span style="color:var(--accent)">PAID</span>
+            ৳{{ closing_record.balance|floatformat:2|slice:"1:" }} — dues settled ✓
+          {% elif closing_record.verdict == 'received' %}
+            You <span style="color:var(--green)">RECEIVED</span>
+            ৳{{ closing_record.balance|floatformat:2 }} — refund collected ✓
+          {% else %}
+            Balance <span style="color:var(--t2)">SETTLED</span> — zero balance ✓
+          {% endif %}
+        </div>
+        <div style="font-size:12px;color:var(--t3)">
+          🔒 Month closed
+          {% if closing_record.verdict_by %} · Recorded by {{ closing_record.verdict_by.name }}{% endif %}
+          {% if closing_record.verdict_at %} · {{ closing_record.verdict_at|date:"d M Y" }}{% endif %}
+          {% if closing_record.verdict_note %} · "{{ closing_record.verdict_note }}"{% endif %}
+        </div>
+      </div>
+    </div>
+    {% elif closing_record and closing_record.verdict == 'pending' %}
+    <div style="margin-top:14px;padding:12px 16px;border-radius:10px;background:var(--bg3);border:1.5px dashed var(--bd2);display:flex;align-items:center;gap:12px">
+      <span style="font-size:20px">⏳</span>
+      <div style="font-size:13px;color:var(--t2)">
+        Month closing is in progress — your settlement is still <strong>pending</strong>. The manager will update this soon.
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">📋</div>
+  <div class="empty-title">No data for {{ month_name }} {{ year }}</div>
+  <div class="empty-sub">No meals or deposits recorded for this month yet.</div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function changeMonth() {
+  const m = document.getElementById('sel-month').value;
+  const y = document.getElementById('sel-year').value;
+  location.href = `/my-statement/?month=${m}&year=${y}`;
+}
+</script>
+{% endblock %}

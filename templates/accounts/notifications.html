@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% load perm_tags %}
+{% block title %}Notifications{% endblock %}
+{% block page_title %}Notifications{% endblock %}
+{% block page_sub %}All messages and system alerts{% endblock %}
+{% block content %}
+{% if notifications %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+  <span style="font-size:13px;color:var(--t3)">{{ notifications|length }} notification(s)</span>
+</div>
+{% for n in notifications %}
+<div class="card" style="margin-bottom:10px;border-left:3px solid
+  {% if n.ntype == 'urgent' %}var(--red)
+  {% elif n.ntype == 'warning' %}var(--amber)
+  {% elif n.ntype == 'success' %}var(--green)
+  {% else %}var(--blue){% endif %}">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+    <div style="display:flex;gap:12px;flex:1">
+      <div style="font-size:22px;flex-shrink:0;margin-top:2px">
+        {% if n.ntype == 'urgent' %}🚨{% elif n.ntype == 'warning' %}⚠️{% elif n.ntype == 'success' %}✅{% else %}ℹ️{% endif %}
+      </div>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:14px;margin-bottom:4px">{{ n.title }}</div>
+        <p style="color:var(--t2);font-size:13px;line-height:1.6">{{ n.message }}</p>
+      </div>
+    </div>
+    <span style="font-size:11px;color:var(--t3);white-space:nowrap;flex-shrink:0">{{ n.created_at|timesince }} ago</span>
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">🔔</div>
+  <div class="empty-title">All caught up!</div>
+  <div class="empty-sub">No notifications at the moment</div>
+</div>
+{% endif %}
+{% endblock %}

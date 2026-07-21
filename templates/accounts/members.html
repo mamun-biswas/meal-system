@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% load perm_tags %}
+{% block title %}Members{% endblock %}
+{% block nav_members %}active{% endblock %}
+{% block page_title %}Members{% endblock %}
+{% block page_sub %}{{ members|length }} active members in the system{% endblock %}
+
+{% block content %}
+<div class="section-hdr" style="margin-bottom:16px">
+  <div>
+    <div class="section-title">👥 All Members</div>
+    <div class="section-sub">Manage access, roles and permissions</div>
+  </div>
+  {% if user_member.is_manager %}
+  <a href="/members/add/" class="btn btn-primary">+ Add Member</a>
+  {% endif %}
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Member</th><th>Phone</th><th>Room</th>
+        <th>Role</th><th>Joined</th><th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in members %}
+      <tr id="row-{{ m.pk }}">
+        <td class="mono text-muted" style="font-size:12px">{{ forloop.counter }}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="avatar" style="background:{{ m.avatar_color }}">{{ m.initials }}</div>
+            <div>
+              <div class="td-name">{{ m.name }}</div>
+              {% if m.note %}
+              <div style="font-size:11px;color:var(--t3);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.note }}</div>
+              {% endif %}
+            </div>
+          </div>
+        </td>
+        <td class="mono" style="font-size:13px">{{ m.phone }}</td>
+        <td>
+          {% if m.room_number %}
+          <span class="badge badge-gray">{{ m.room_number }}</span>
+          {% else %}—{% endif %}
+        </td>
+        <td><span class="badge role-{{ m.role }}">{{ m.get_role_display }}</span></td>
+        <td style="font-size:12px;color:var(--t3)">{{ m.joined_date }}</td>
+        <td>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <a href="/finance/statement/{{ m.pk }}/" class="btn btn-ghost btn-xs">📊 Statement</a>
+            {% if user_member.is_manager %}
+            <a href="/members/{{ m.pk }}/edit/" class="btn btn-ghost btn-xs">✏️ Edit</a>
+            {% if m.role == 'sub_manager' %}
+            <a href="/members/{{ m.pk }}/permissions/" class="btn btn-xs" style="background:var(--purple-soft);color:var(--purple);border:1px solid rgba(168,85,247,.2)">🔑 Perms</a>
+            {% endif %}
+            {% if m.pk != user_member.pk %}
+            <button class="btn btn-danger btn-xs" onclick="deactivate({{ m.pk }},'{{ m.name }}')">🗑 Remove</button>
+            {% endif %}
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="7">
+          <div class="empty-state">
+            <div class="empty-icon">👥</div>
+            <div class="empty-title">No members yet</div>
+            <div class="empty-sub">Add members to get started</div>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function deactivate(pk, name) {
+  if (!confirm(`Deactivate "${name}"?\nThey will lose login access. Data is preserved.`)) return;
+  try {
+    const d = await apiCall(`/members/${pk}/deactivate/`, 'DELETE');
+    toast('Member Deactivated', d.message, 'success');
+    const row = document.getElementById(`row-${pk}`);
+    if (row) { row.style.opacity = '.4'; row.style.pointerEvents = 'none'; }
+    setTimeout(() => location.reload(), 1500);
+  } catch(e) { toast('Error', e.message, 'error'); }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% load perm_tags %}
+{% block title %}Permissions — {{ target.name }}{% endblock %}
+{% block nav_members %}active{% endblock %}
+{% block page_title %}Sub-Manager Permissions{% endblock %}
+{% block page_sub %}Configure what {{ target.name }} can access and edit{% endblock %}
+{% block content %}
+<div style="max-width:680px">
+  <!-- Member Card -->
+  <div class="card" style="margin-bottom:20px">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div class="avatar lg" style="background:{{ target.avatar_color }}">{{ target.initials }}</div>
+      <div style="flex:1">
+        <div style="font-size:18px;font-weight:700">{{ target.name }}</div>
+        <div style="color:var(--t3);font-size:13px;margin-top:4px">📱 {{ target.phone }}{% if target.room_number %} · Room {{ target.room_number }}{% endif %}</div>
+        <div style="margin-top:8px"><span class="badge role-sub_manager">Sub Manager</span></div>
+      </div>
+      <a href="/members/" class="btn btn-ghost btn-sm">← Back</a>
+    </div>
+  </div>
+
+  <div class="alert alert-info" style="margin-bottom:20px">
+    <span>ℹ️</span>
+    <div>
+      Toggle each permission to control what this Sub Manager can do.
+      <strong>Manager always has full access</strong> regardless of settings.
+      Changes take effect immediately on next login.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">🔑 Permission Configuration</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-xs" onclick="setAll(true)">Grant All</button>
+        <button class="btn btn-ghost btn-xs" onclick="setAll(false)">Revoke All</button>
+      </div>
+    </div>
+    <form method="post">{% csrf_token %}
+      {% for code, label, granted in perms %}
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--bd)">
+        <div>
+          <div style="font-size:13px;font-weight:600">{{ label }}</div>
+          <div style="font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;margin-top:2px">{{ code }}</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" name="permissions" value="{{ code }}" {% if granted %}checked{% endif %} class="perm-cb">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+      {% endfor %}
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+        <a href="/members/" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">💾 Save Permissions</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function setAll(val) {
+  document.querySelectorAll('.perm-cb').forEach(cb => cb.checked = val);
+}
+</script>
+{% endblock %}

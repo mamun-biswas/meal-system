@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% load perm_tags %}
+{% block title %}Allow Member Meal Input{% endblock %}
+{% block nav_member_input %}active{% endblock %}
+{% block page_title %}Allow Member Meal Input{% endblock %}
+{% block page_sub %}Turn self-input on/off and set the daily time window, per meal type{% endblock %}
+
+{% block content %}
+<div class="alert alert-info" style="margin-bottom:20px">
+  <span style="font-size:18px">ℹ️</span>
+  <div>
+    <strong>Member Self-Input</strong> — when a meal type is ON, plain members can enter their own morning/lunch/dinner counts on the Meal Mark page during the time window below. Turning a meal type OFF or narrowing its window closes self-input for that meal type immediately.<br>
+    <span style="font-size:12px">A slot is also automatically closed for self-input the moment it's been confirmed (saved) by a Manager/Sub-Manager for that specific day — regardless of this on/off setting.</span>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:18px;padding:16px 20px">
+  <div style="font-size:13px;font-weight:700;margin-bottom:12px">Member Self-Input — per meal type</div>
+  <div id="mi-control-rows" style="display:flex;flex-direction:column;gap:10px"></div>
+  <button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="saveMemberInputSettings()">💾 Save Input Windows</button>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const INPUT_SETTINGS = {{ input_settings_js|safe }}; // {morning:{enabled,start,end,open_now}, lunch:{...}, dinner:{...}}
+
+const SLOT_META = {
+  morning: { icon: '🌅', label: 'Morning' },
+  lunch:   { icon: '🍛', label: 'Lunch' },
+  dinner:  { icon: '🌙', label: 'Dinner' },
+};
+
+function buildMemberInputControlRows() {
+  const container = document.getElementById('mi-control-rows');
+  if (!container) return;
+  container.innerHTML = Object.keys(SLOT_META).map(slot => {
+    const meta = SLOT_META[slot];
+    const cfg = INPUT_SETTINGS[slot] || { enabled: false, start: '00:00', end: '23:59', open_now: false };
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:10px 12px;border-radius:8px;border:1.5px solid ${cfg.open_now ? 'var(--green)' : 'var(--bd2)'};background:var(--bg3)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:18px">${meta.icon}</div>
+          <div>
+            <div style="font-size:12px;font-weight:700">
+              ${meta.label} — <span style="color:${cfg.enabled ? 'var(--green)' : 'var(--t3)'}">${cfg.enabled ? 'ON' : 'OFF'}</span>
+            </div>
+            <div style="font-size:11px;color:var(--t3)">
+              ${cfg.enabled ? (cfg.open_now ? '<span style="color:var(--green);font-weight:600">open right now</span>' : 'closed right now') : 'self-input disabled for this meal'}
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <input type="time" id="mi-start-${slot}" class="form-control" style="width:110px;padding:5px 8px;font-size:12px" value="${cfg.start}">
+          <span style="color:var(--t3);font-size:12px">to</span>
+          <input type="time" id="mi-end-${slot}" class="form-control" style="width:110px;padding:5px 8px;font-size:12px" value="${cfg.end}">
+          <label class="toggle">
+            <input type="checkbox" id="mi-enabled-cb-${slot}" ${cfg.enabled ? 'checked' : ''}>
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function saveMemberInputSettings() {
+  const payload = {};
+  for (const slot of Object.keys(SLOT_META)) {
+    const enabledCb = document.getElementById(`mi-enabled-cb-${slot}`);
+    const startInp  = document.getElementById(`mi-start-${slot}`);
+    const endInp    = document.getElementById(`mi-end-${slot}`);
+    if (!enabledCb || !startInp || !endInp) return;
+    payload[slot] = { enabled: enabledCb.checked, start: startInp.value, end: endInp.value };
+  }
+
+  try {
+    const data = await apiCall('/meals/member-input-settings/save/', 'POST', payload);
+    INPUT_SETTINGS.morning = data.morning;
+    INPUT_SETTINGS.lunch   = data.lunch;
+    INPUT_SETTINGS.dinner  = data.dinner;
+    toast('Saved', data.message, 'success');
+    buildMemberInputControlRows();
+  } catch (e) {
+    toast('Error', e.message, 'error');
+  }
+}
+
+buildMemberInputControlRows();
+</script>
+{% endblock %}

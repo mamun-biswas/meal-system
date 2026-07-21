@@ -1,0 +1,526 @@
+{% extends 'base.html' %}
+{% load perm_tags %}
+{% block title %}Monthly Report — {{ month_name }} {{ year }}{% endblock %}
+{% block nav_rmonthly %}active{% endblock %}
+{% block page_title %}Monthly Report{% endblock %}
+{% block page_sub %}{{ stats.month_name }} {{ stats.year }} — full financial breakdown{% endblock %}
+
+{% block content %}
+{% if mess %}
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;color:var(--t2);font-size:13px;font-weight:600">
+  <span style="font-size:16px">🏠</span> {{ mess.name }}
+  <span style="color:var(--t3);font-weight:400;font-size:12px">· Mess ID: {{ mess.code }}</span>
+</div>
+{% endif %}
+<!-- CONTROLS -->
+<div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
+  <select id="sel-month" class="form-control" style="width:145px" onchange="changeMonthYear()">
+    {% for mn,mn2 in months %}<option value="{{ mn }}"{% if mn == month %} selected{% endif %}>{{ mn2 }}</option>{% endfor %}
+  </select>
+  <select id="sel-year" class="form-control" style="width:88px" onchange="changeMonthYear()">
+    {% for y in years %}<option value="{{ y }}"{% if y == year %} selected{% endif %}>{{ y }}</option>{% endfor %}
+  </select>
+  <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+    {% if user_member.is_manager or user_member|has_perm:"export_data" %}
+    <span style="font-size:11px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Export:</span>
+    <button type="button" onclick="openPdfPreview()"
+       class="btn btn-ghost btn-sm" title="Preview English PDF report">
+      📄 PDF (EN)
+    </button>
+    <a href="/reports/export/excel/en/?month={{ month }}&year={{ year }}"
+       class="btn btn-ghost btn-sm" title="Download English Excel report">
+      📊 Excel (EN)
+    </a>
+    <button type="button" onclick="openPdfPreviewBn()"
+       class="btn btn-ghost btn-sm" style="color:var(--accent)" title="বাংলা PDF রিপোর্ট প্রিভিউ">
+      📄 PDF (বাংলা)
+    </button>
+    <a href="/reports/export/excel/bn/?month={{ month }}&year={{ year }}"
+       class="btn btn-ghost btn-sm" style="color:var(--accent)" title="বাংলা Excel রিপোর্ট">
+      📊 Excel (বাংলা)
+    </a>
+    <span style="color:var(--bd2);margin:0 2px">|</span>
+    <a href="/reports/export/csv/?month={{ month }}&year={{ year }}&type=monthly" class="btn btn-ghost btn-sm" title="CSV export">📥 CSV</a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- SUMMARY STAT CARDS -->
+<div class="stat-grid" style="margin-bottom:24px">
+  <div class="stat-card blue">
+    <div class="stat-icon">🍽</div>
+    <div class="stat-label">Total Eff. Meals</div>
+    <div class="stat-val blue">{{ stats.total_eff|floatformat:1 }}</div>
+    <div class="stat-sub">Across all members</div>
+  </div>
+  <div class="stat-card red">
+    <div class="stat-icon">🛒</div>
+    <div class="stat-label">Total Expense</div>
+    <div class="stat-val red">৳{{ stats.total_exp|floatformat:0 }}</div>
+    <div class="stat-sub">Bazar &amp; groceries</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-icon">💰</div>
+    <div class="stat-label">Total Deposit</div>
+    <div class="stat-val green">৳{{ stats.total_dep|floatformat:0 }}</div>
+    <div class="stat-sub">All members</div>
+  </div>
+  <div class="stat-card amber">
+    <div class="stat-icon">📈</div>
+    <div class="stat-label">Meal Rate</div>
+    <div class="stat-val amber">৳{{ stats.meal_rate }}</div>
+    <div class="stat-sub">Per effective meal</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">🔧</div>
+    <div class="stat-label">Cooking Cost</div>
+    <div class="stat-val accent">৳{{ stats.cook_cost }}</div>
+    <div class="stat-sub">Per eating member</div>
+  </div>
+  <div class="stat-card {% if stats.fund_balance >= 0 %}green{% else %}red{% endif %}">
+    <div class="stat-icon">{% if stats.fund_balance >= 0 %}✅{% else %}⚠️{% endif %}</div>
+    <div class="stat-label">Fund Balance</div>
+    <div class="stat-val {% if stats.fund_balance >= 0 %}green{% else %}red{% endif %}">
+      ৳{{ stats.fund_balance|floatformat:0 }}
+    </div>
+    <div class="stat-sub">{% if stats.fund_balance >= 0 %}Surplus{% else %}Deficit{% endif %}</div>
+  </div>
+</div>
+
+<!-- TREND CHART -->
+<div class="card" style="margin-bottom:24px">
+  <div class="card-header">
+    <div class="card-title">📈 6-Month Trend</div>
+  </div>
+  <canvas id="trendChart" height="110"></canvas>
+</div>
+
+<!-- PER MEMBER TABLE -->
+<div class="section-hdr">
+  <div class="section-title">👥 Per Member Breakdown</div>
+</div>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Member</th>
+        <th>Raw Meals</th><th>Eff. Meals</th>
+        <th>Meal Cost</th><th>Cook Cost</th><th>Total Cost</th>
+        <th>Deposited</th><th>Balance</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in stats.per_member %}
+      <tr>
+        <td class="mono text-muted" style="font-size:12px">{{ forloop.counter }}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:9px">
+            <div class="avatar" style="background:{{ s.member.avatar_color }};width:28px;height:28px;font-size:10px">{{ s.member.initials }}</div>
+            <div>
+              <div class="td-name">{{ s.member.name }}</div>
+              <div style="font-size:11px;color:var(--t3)">{{ s.member.phone }}</div>
+            </div>
+          </div>
+        </td>
+        <td class="mono" style="font-size:13px">{{ s.raw_meals|floatformat:1 }}</td>
+        <td class="mono fw-600" style="color:var(--accent)">{{ s.eff_meals|floatformat:1 }}</td>
+        <td class="mono">৳{{ s.meal_only_cost|floatformat:2 }}</td>
+        <td class="mono">৳{{ s.cook_cost|floatformat:0 }}</td>
+        <td class="mono fw-600" style="color:var(--red)">৳{{ s.cost|floatformat:2 }}</td>
+        <td class="mono fw-600" style="color:var(--green)">৳{{ s.deposit|floatformat:2 }}</td>
+        <td>
+          <span class="badge {% if s.balance >= 0 %}badge-green{% else %}badge-red{% endif %}" style="font-family:'JetBrains Mono',monospace;font-size:12px">
+            {% if s.balance >= 0 %}+{% endif %}৳{{ s.balance|floatformat:2 }}
+          </span>
+        </td>
+        <td>
+          <a href="/finance/statement/{{ s.member.pk }}/?month={{ month }}&year={{ year }}" class="btn btn-ghost btn-xs">Details</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr style="background:var(--bg3)">
+        <td colspan="2" style="padding:12px 16px;font-weight:700;color:var(--t)">Total</td>
+        <td class="mono fw-700">—</td>
+        <td class="mono fw-700" style="color:var(--accent)">{{ stats.total_eff|floatformat:1 }}</td>
+        <td colspan="2"></td>
+        <td class="mono fw-700" style="color:var(--red)">৳{{ stats.total_exp|floatformat:2 }}</td>
+        <td class="mono fw-700" style="color:var(--green)">৳{{ stats.total_dep|floatformat:2 }}</td>
+        <td colspan="2"></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+<!-- PDF (EN) PREVIEW MODAL -->
+<div class="modal-overlay" id="pdfPreviewOverlay">
+  <div class="modal" id="pdfPreviewModal" style="width:min(94vw,1180px);max-width:94vw;height:90vh">
+    <div class="card-header" style="padding:14px 18px;border-bottom:1px solid var(--bd);flex-shrink:0">
+      <div>
+        <div class="card-title" style="font-size:15px">📄 Monthly Report Preview — English PDF</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">{{ month_name }} {{ year }} · review before downloading</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button type="button" id="pdfPrintBtn" class="btn btn-ghost btn-sm" title="Open the PDF in a new tab to print it">🖨️ Print</button>
+        <a id="pdfDownloadLink" href="#" class="btn btn-primary btn-sm" title="Download this PDF">⬇️ Download</a>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closePdfPreview()">✕ Close</button>
+      </div>
+    </div>
+    <div style="flex:1;min-height:0;background:var(--bg3);position:relative">
+      <div id="pdfPreviewLoading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--t3);font-size:13px">
+        <div class="spinner"></div>
+        <div>Generating preview…</div>
+      </div>
+      <iframe id="pdfPreviewFrame" src="about:blank" style="width:100%;height:100%;border:0;display:block"></iframe>
+    </div>
+  </div>
+</div>
+
+<!-- PDF (বাংলা) PREVIEW MODAL -->
+<div class="modal-overlay" id="pdfPreviewOverlayBn">
+  <div class="modal" id="pdfPreviewModalBn" style="width:min(94vw,1180px);max-width:94vw;height:90vh">
+    <div class="card-header" style="padding:14px 18px;border-bottom:1px solid var(--bd);flex-shrink:0">
+      <div>
+        <div class="card-title" style="font-size:15px">📄 মাসিক রিপোর্ট প্রিভিউ — বাংলা PDF</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">{{ month_name }} {{ year }} · ডাউনলোডের আগে রিভিউ করুন</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <a id="pdfDownloadLinkBn" href="#" target="_blank" class="btn btn-primary btn-sm" title="ব্রাউজারের প্রিন্ট ডায়ালগ খুলবে — &quot;Save as PDF&quot; বেছে নিন">🖨️ Print / Save as PDF</a>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closePdfPreviewBn()">✕ Close</button>
+      </div>
+    </div>
+    <div style="flex:1;min-height:0;background:var(--bg3);position:relative">
+      <div id="pdfPreviewLoadingBn" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--t3);font-size:13px">
+        <div class="spinner"></div>
+        <div>প্রিভিউ তৈরি হচ্ছে…</div>
+      </div>
+      <iframe id="pdfPreviewFrameBn" src="about:blank" style="width:100%;height:100%;border:0;display:block"></iframe>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+function changeMonthYear() {
+  location.href = `/reports/monthly/?month=${document.getElementById('sel-month').value}&year=${document.getElementById('sel-year').value}`;
+}
+
+function openPdfPreview() {
+  var m = {{ month }}, y = {{ year }};
+  var pdfUrl     = `/reports/export/pdf/en/?month=${m}&year=${y}`;
+  var printUrl   = `/reports/export/pdf/en/preview/?month=${m}&year=${y}&print=1`;
+  var previewUrl = `/reports/export/pdf/en/preview/?month=${m}&year=${y}`;
+  document.getElementById('pdfDownloadLink').href = pdfUrl;
+  document.getElementById('pdfPrintBtn').onclick = function(){
+    // Opens the plain-HTML rendering (same one the preview modal uses)
+    // with an auto-triggered window.print(), instead of opening the
+    // actual PDF inline. Some browsers force-download ANY PDF response
+    // regardless of Content-Disposition: inline, which left the Print
+    // tab blank. Bangla's Print button never had this problem because
+    // it was always plain HTML — this mirrors that exact approach.
+    window.open(printUrl, '_blank');
+  };
+  document.getElementById('pdfPreviewOverlay').classList.add('open');
+
+  var loading = document.getElementById('pdfPreviewLoading');
+  var frame = document.getElementById('pdfPreviewFrame');
+  loading.style.display = 'flex';
+  frame.style.visibility = 'hidden';
+  frame.removeAttribute('srcdoc');
+  frame.src = 'about:blank';
+
+  // The preview is plain HTML (not the actual PDF) shown via srcdoc.
+  // Some browsers are set to force-download ANY application/pdf
+  // response — including a blob: URL loaded into an iframe — which
+  // makes previewing a real PDF unreliable in-page. Rendering an HTML
+  // look-alike sidesteps that entirely (the same approach the বাংলা
+  // report already uses). The Download button above still produces the
+  // real, printable PDF.
+  fetch(previewUrl)
+    .then(function(resp){
+      if(!resp.ok) throw new Error('Failed to generate preview (status ' + resp.status + ')');
+      return resp.text();
+    })
+    .then(function(html){
+      frame.srcdoc = html;
+      frame.style.visibility = 'visible';
+      loading.style.display = 'none';
+    })
+    .catch(function(err){
+      loading.innerHTML = '<div style="color:var(--red)">⚠️ Could not load preview.<br>' + err.message + '</div>';
+    });
+}
+
+function closePdfPreview() {
+  document.getElementById('pdfPreviewOverlay').classList.remove('open');
+  var frame = document.getElementById('pdfPreviewFrame');
+  frame.removeAttribute('srcdoc');
+  frame.src = 'about:blank';
+  var loading = document.getElementById('pdfPreviewLoading');
+  loading.style.display = 'flex';
+  loading.innerHTML = '<div class="spinner"></div><div>Generating preview…</div>';
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  var overlay = document.getElementById('pdfPreviewOverlay');
+  if(overlay){
+    overlay.addEventListener('click', function(e){
+      if(e.target === overlay) closePdfPreview();
+    });
+  }
+  var overlayBn = document.getElementById('pdfPreviewOverlayBn');
+  if(overlayBn){
+    overlayBn.addEventListener('click', function(e){
+      if(e.target === overlayBn) closePdfPreviewBn();
+    });
+  }
+});
+
+function openPdfPreviewBn() {
+  var m = {{ month }}, y = {{ year }};
+  var printUrl    = `/reports/export/pdf/bn/?month=${m}&year=${y}`;
+  var previewUrl  = `/reports/export/pdf/bn/?month=${m}&year=${y}&preview=1`;
+  document.getElementById('pdfPreviewOverlayBn').classList.add('open');
+
+  var loading = document.getElementById('pdfPreviewLoadingBn');
+  var frame = document.getElementById('pdfPreviewFrameBn');
+  loading.style.display = 'flex';
+  frame.style.visibility = 'hidden';
+  frame.removeAttribute('srcdoc');
+  frame.src = 'about:blank';
+
+  // Bangla has no server-side PDF renderer (ReportLab can't shape Bangla
+  // script correctly, and a headless-browser dependency caused ongoing
+  // setup trouble) — so this opens the printable report in a new tab and
+  // triggers the browser's own print dialog, where "Save as PDF" produces
+  // the actual file.
+  document.getElementById('pdfDownloadLinkBn').href = printUrl;
+
+  fetch(previewUrl)
+    .then(function(resp){
+      if(!resp.ok) throw new Error('প্রিভিউ তৈরি ব্যর্থ হয়েছে (status ' + resp.status + ')');
+      return resp.text();
+    })
+    .then(function(html){
+      frame.srcdoc = html;
+      frame.style.visibility = 'visible';
+      loading.style.display = 'none';
+    })
+    .catch(function(err){
+      loading.innerHTML = '<div style="color:var(--red)">⚠️ প্রিভিউ লোড করা যায়নি।<br>' + err.message + '</div>';
+    });
+}
+
+function closePdfPreviewBn() {
+  document.getElementById('pdfPreviewOverlayBn').classList.remove('open');
+  var frame = document.getElementById('pdfPreviewFrameBn');
+  frame.removeAttribute('srcdoc');
+  frame.src = 'about:blank';
+  var loading = document.getElementById('pdfPreviewLoadingBn');
+  loading.style.display = 'flex';
+  loading.innerHTML = '<div class="spinner"></div><div>প্রিভিউ তৈরি হচ্ছে…</div>';
+}
+
+function printReport(lang) {
+  if (lang === 'en') {
+    document.body.setAttribute('data-print', 'en');
+  } else {
+    document.body.setAttribute('data-print', 'bn');
+  }
+  window.print();
+  setTimeout(() => document.body.removeAttribute('data-print'), 1000);
+}
+const trend  = {{ trend_json|safe }};
+const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+const gc = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
+const tc = isDark ? '#5a6272' : '#94a3b8';
+new Chart(document.getElementById('trendChart'), {
+  type: 'bar',
+  data: {
+    labels: trend.map(t => t.label),
+    datasets: [
+      { label: 'Effective Meals', data: trend.map(t => t.eff), backgroundColor: 'rgba(99,102,241,.75)', borderRadius: 5, yAxisID: 'y' },
+      { label: 'Expense (৳)', data: trend.map(t => t.exp), backgroundColor: 'rgba(239,68,68,.65)', borderRadius: 5, yAxisID: 'y1' },
+      { label: 'Deposit (৳)', data: trend.map(t => t.dep), backgroundColor: 'rgba(34,197,94,.65)', borderRadius: 5, yAxisID: 'y1' },
+    ]
+  },
+  options: {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { labels: { color: tc, font: { size: 11 } } } },
+    scales: {
+      x:  { grid: { color: gc }, ticks: { color: tc } },
+      y:  { grid: { color: gc }, ticks: { color: tc }, title: { display: true, text: 'Meals', color: tc } },
+      y1: { position: 'right', grid: { display: false }, ticks: { color: tc }, title: { display: true, text: '৳ Amount', color: tc } },
+    }
+  }
+});
+</script>
+
+<!-- Bangla report data — embedded as JSON for popup-window printing -->
+<script id="bn-data" type="application/json">
+{
+  "month": "{{ stats.month_name }} {{ stats.year }}",
+  "meal_rate": "{{ stats.meal_rate|floatformat:2 }}",
+  "cook_cost": "{{ stats.cook_cost|floatformat:0 }}",
+  "total_eff": "{{ stats.total_eff|floatformat:1 }}",
+  "total_exp": "{{ stats.total_exp|floatformat:0 }}",
+  "total_dep": "{{ stats.total_dep|floatformat:0 }}",
+  "fund_balance": "{{ stats.fund_balance|floatformat:0 }}",
+  "members": [
+    {% for s in stats.per_member %}
+    {
+      "sl": {{ forloop.counter }},
+      "name": "{% if s.member.name_bn %}{{ s.member.name_bn }}{% else %}{{ s.member.name }}{% endif %}",
+      "meals": "{{ s.eff_meals|floatformat:1 }}",
+      "meal_cost": "{{ s.meal_only_cost|floatformat:2 }}",
+      "cook_cost": "{{ s.cook_cost|floatformat:0 }}",
+      "total_cost": "{{ s.cost|floatformat:2 }}",
+      "deposit": "{{ s.deposit|floatformat:0 }}",
+      "balance": "{{ s.balance|floatformat:2 }}",
+      "balance_raw": {{ s.balance }}
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ]
+}
+</script>
+
+<script>
+function toBn(v){
+  return String(v).replace(/[0-9]/g,function(c){return '০১২৩৪৫৬৭৮৯'[+c];});
+}
+
+function printReport(lang){
+  if(lang==='en'){
+    window.print();
+    return;
+  }
+  // Build self-contained Bangla HTML in a popup and print it
+  var raw = document.getElementById('bn-data').textContent;
+  var d = JSON.parse(raw);
+
+  var today = new Date();
+  var months = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+  var printDate = toBn(today.getDate())+' '+months[today.getMonth()]+' '+toBn(today.getFullYear());
+
+  // Summary cards
+  var fundColor = parseFloat(d.fund_balance) >= 0 ? '#1a7a1a' : '#cc0000';
+
+  // Build rows
+  var rows = '';
+  for(var i=0;i<d.members.length;i++){
+    var m = d.members[i];
+    var bal = parseFloat(m.balance_raw);
+    var pabe = bal>=0 ? '<td class="pabe">'+toBn(m.balance)+'</td><td class="dash">—</td>'
+                      : '<td class="dash">—</td><td class="dibe">'+toBn(m.balance)+'</td>';
+    var bg = (i%2===1) ? '#f0f0f0' : '#fff';
+    rows += '<tr style="background:'+bg+'">'
+          + '<td class="sl">'+toBn(m.sl)+'</td>'
+          + '<td class="name">'+m.name+'</td>'
+          + '<td>'+toBn(m.meals)+'</td>'
+          + '<td>'+toBn(m.meal_cost)+'</td>'
+          + '<td>'+toBn(m.cook_cost)+'</td>'
+          + '<td><b>'+toBn(m.total_cost)+'</b></td>'
+          + '<td>'+toBn(m.deposit)+'</td>'
+          + pabe
+          + '</tr>';
+  }
+
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+  + '<title>বাংলা রিপোর্ট — '+d.month+'</title>'
+  + '<link rel="preconnect" href="https://fonts.googleapis.com">'
+  + '<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@700&display=swap" rel="stylesheet">'
+  + '<style>'
+  + '*{margin:0;padding:0;box-sizing:border-box}'
+  + '@page{size:A4 portrait;margin:8mm 8mm}'
+  + 'body{font-family:"Hind Siliguri","Noto Sans Bengali",Arial,sans-serif;font-weight:700;font-size:10pt;color:#000;background:#fff;padding:5mm 6mm}'
+  + 'b,strong,th,td,div,span,p{font-weight:700!important}'
+  // Header
+  + '.hdr{text-align:center;border-bottom:2px solid #000;padding-bottom:5px;margin-bottom:7px}'
+  + '.hdr-t1{font-size:15pt;margin-bottom:2px}'
+  + '.hdr-t2{font-size:10.5pt;margin-bottom:2px}'
+  + '.hdr-t3{font-size:8pt;color:#222}'
+  // Summary
+  + '.sum{display:flex;gap:5px;margin-bottom:7px}'
+  + '.sc{flex:1;border:1.5px solid #555;border-radius:2px;padding:4px 6px;text-align:center}'
+  + '.sc-l{font-size:7.5pt;color:#333;margin-bottom:1px}'
+  + '.sc-v{font-size:11pt}'
+  // Table
+  + 'table{width:100%;border-collapse:collapse;font-size:9.5pt}'
+  + 'th{background:#1e2235;color:#fff;padding:5px 4px;text-align:center;border:1px solid #000;line-height:1.2}'
+  + 'th.name{text-align:left;padding-left:6px}'
+  + 'td{padding:4px 4px;border:1px solid #aaa;text-align:center;vertical-align:middle;line-height:1.2}'
+  + 'td.name{text-align:left;padding-left:6px}'
+  + 'td.sl{font-size:8.5pt;color:#333;width:22px}'
+  + 'tfoot td{background:#1e2235;color:#fff;border:1px solid #000;padding:5px 4px;text-align:center}'
+  + 'tfoot td.name{text-align:left;padding-left:6px}'
+  + '.pabe{color:#1a7a1a}'
+  + '.dibe{color:#cc0000}'
+  + '.dash{color:#aaa}'
+  // Footer
+  + '.foot{margin-top:7px;border-top:1px solid #999;padding-top:4px;display:flex;justify-content:space-between;font-size:8pt;color:#333}'
+  + '.sigs{display:flex;justify-content:space-between;margin-top:16px;padding:0 8px}'
+  + '.sig{text-align:center;padding-top:5px;border-top:1.5px solid #000;font-size:8pt;min-width:90px}'
+  + '</style></head><body>'
+  + '<div class="hdr">'
+  + '<div class="hdr-t1">🍽 টাইটাস মেস — মাসিক হিসাব</div>'
+  + '<div class="hdr-t2">'+d.month+'</div>'
+  + '<div class="hdr-t3">'
+  + 'মিল রেট: ৳'+toBn(d.meal_rate)+' &nbsp;|&nbsp; রান্না খরচ (জনপ্রতি): ৳'+toBn(d.cook_cost)+' &nbsp;|&nbsp; মোট কার্যকর মিল: '+toBn(d.total_eff)
+  + '</div></div>'
+  + '<div class="sum">'
+  + '<div class="sc"><div class="sc-l">মোট বাজার খরচ</div><div class="sc-v">৳'+toBn(d.total_exp)+'</div></div>'
+  + '<div class="sc"><div class="sc-l">মোট জমা</div><div class="sc-v">৳'+toBn(d.total_dep)+'</div></div>'
+  + '<div class="sc" style="border-color:'+fundColor+'"><div class="sc-l">ফান্ড ব্যালেন্স</div><div class="sc-v" style="color:'+fundColor+'">৳'+toBn(d.fund_balance)+'</div></div>'
+  + '<div class="sc"><div class="sc-l">মিল রেট</div><div class="sc-v">৳'+toBn(d.meal_rate)+'</div></div>'
+  + '</div>'
+  + '<table>'
+  + '<thead><tr>'
+  + '<th style="width:22px">ক্র:</th>'
+  + '<th class="name">নাম</th>'
+  + '<th>মোট মিল</th>'
+  + '<th>মিল খরচ</th>'
+  + '<th>রান্না খরচ</th>'
+  + '<th>মোট খরচ</th>'
+  + '<th>জমা</th>'
+  + '<th>পাবে ✓</th>'
+  + '<th>দিবে ✗</th>'
+  + '</tr></thead>'
+  + '<tbody>'+rows+'</tbody>'
+  + '<tfoot><tr>'
+  + '<td colspan="2" class="name">মোট</td>'
+  + '<td>'+toBn(d.total_eff)+'</td>'
+  + '<td colspan="2"></td>'
+  + '<td>৳'+toBn(d.total_exp)+'</td>'
+  + '<td>৳'+toBn(d.total_dep)+'</td>'
+  + '<td colspan="2"></td>'
+  + '</tr></tfoot>'
+  + '</table>'
+  + '<div class="foot">'
+  + '<span>মুদ্রণের তারিখ: '+printDate+'</span>'
+  + '<span>মিল রেট = মোট বাজার ÷ মোট কার্যকর মিল</span>'
+  + '</div>'
+  + '<div class="sigs">'
+  + '<div class="sig">ম্যানেজারের স্বাক্ষর</div>'
+  + '<div class="sig">সদস্যের স্বাক্ষর</div>'
+  + '<div class="sig">সদস্যের স্বাক্ষর</div>'
+  + '</div>'
+  + '</body></html>';
+
+  var w = window.open('','_blank','width=800,height=600');
+  w.document.write(html);
+  w.document.close();
+  // Wait for font to load then print
+  w.onload = function(){
+    setTimeout(function(){ w.print(); }, 600);
+  };
+  // Fallback if onload already fired
+  setTimeout(function(){
+    try{ w.print(); }catch(e){}
+  }, 800);
+}
+</script>
+{% endblock %}

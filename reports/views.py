@@ -979,8 +979,8 @@ tr:nth-child(even){{background:#f0f0f0}}
 tr:nth-child(odd){{background:#fff}}
 tfoot tr td{{background:#1e2235;color:#fff;border:1px solid #000;padding:5px 4px;text-align:center}}
 tfoot tr td.name{{text-align:left;padding-left:7px}}
-.pabe{{color:#1a7a1a}}
-.dibe{{color:#cc0000}}
+.pabe{{color:#000000}}
+.dibe{{color:#000000}}
 .foot{{margin-top:6px;border-top:1px solid #aaa;padding-top:4px;
        display:flex;justify-content:space-between;font-size:8pt;color:#444}}
 .sigs{{display:flex;justify-content:space-between;margin-top:14px;padding:0 8px}}

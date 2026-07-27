@@ -786,7 +786,7 @@ def update_meal_history(request):
             messages.error(request, 'Invalid date format.')
 
     if selected_member and selected_date:
-        current_mark = MealMark.objects.filter(
+        current_mark = MealMark.objects.select_related('marked_by').filter(
             member=selected_member, date=selected_date
         ).first()
 
@@ -834,9 +834,19 @@ def update_meal_history(request):
     # Build recent history for selected member (last 14 days with data)
     recent_history = []
     if selected_member:
-        recent_history = MealMark.objects.filter(
+        # Materialized + precomputed for the same reason as
+        # finance.views.member_statement / accounts.views.my_statement:
+        # the template displays {{ mk.eff }} rather than calling
+        # {{ mk.effective_count }} directly, since Django templates call
+        # methods with zero arguments and would otherwise re-trigger a
+        # DayConfig + MealCountSettings query per row.
+        recent_history = list(MealMark.objects.filter(
             member=selected_member
-        ).order_by('-date')[:14]
+        ).select_related('marked_by', 'member__mess').order_by('-date')[:14])
+        day_config_map, weights = MealMark.preload_calc_context(
+            selected_member.mess, dates=(mk.date for mk in recent_history))
+        for mk in recent_history:
+            mk.eff = mk.effective_count(day_config_map, weights)
 
     return render(request, 'meals/update_meal_history.html', {
         'members': members,

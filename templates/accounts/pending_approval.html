@@ -1,8 +1,15 @@
 {% extends 'base.html' %}
 {% block content %}
 <style>
-.pending-root{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:24px}
-.pending-card{width:100%;max-width:520px;background:var(--bg2);border:1px solid var(--bd);border-radius:18px;padding:40px 36px;text-align:center}
+/* Centered like the app's other narrow single-card pages (Profile,
+   Member form, Permissions) — a simple max-width + margin:auto column
+   within the normal sidebar+topbar layout. No viewport-height tricks:
+   forcing this to min-height:100vh while it's already nested below the
+   topbar and next to the sidebar was what previously made the page
+   taller than the actual screen and pushed the card (and its Sign Out
+   button) below the fold. */
+.pending-root{max-width:520px;margin:40px auto}
+.pending-card{width:100%;background:var(--bg2);border:1px solid var(--bd);border-radius:18px;padding:40px 36px;text-align:center}
 .pending-icon{width:76px;height:76px;background:linear-gradient(135deg,#F59E0B,#D97706);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 22px;box-shadow:0 8px 32px rgba(245,158,11,.35)}
 .pending-title{font-size:22px;font-weight:800;letter-spacing:-.4px;margin-bottom:10px}
 .pending-msg{color:var(--t3);font-size:14px;line-height:1.7;margin-bottom:24px}
@@ -12,6 +19,12 @@
 .pending-meta span:last-child{font-weight:600}
 .admin-msg{background:var(--bg3);border-left:3px solid var(--accent);border-radius:8px;padding:12px 14px;text-align:left;margin-bottom:12px;font-size:13px}
 .admin-msg .when{font-size:11px;color:var(--t3);margin-top:6px}
+@media(max-width:480px){
+  .pending-root{margin:20px auto}
+  .pending-card{padding:28px 22px}
+  .pending-icon{width:60px;height:60px;font-size:28px;margin-bottom:16px}
+  .pending-title{font-size:19px}
+}
 </style>
 
 <div class="pending-root">

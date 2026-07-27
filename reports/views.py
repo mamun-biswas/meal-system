@@ -83,7 +83,14 @@ def report_daily(request):
     exps   = Expense.objects.filter(date=date).select_related('bought_by', 'added_by')
     deps   = Deposit.objects.filter(date=date).select_related('member', 'added_by')
     day_config_map, weights = MealMark.preload_calc_context(request.user.member.mess, dates=[date])
-    total_meals = sum((mk.effective_count(day_config_map, weights) for mk in marks), Decimal('0'))
+    # daily.html displays {{ mk.eff }} rather than calling
+    # {{ mk.effective_count }} directly, since Django templates call
+    # methods with zero arguments and would otherwise re-trigger a
+    # DayConfig + MealCountSettings query per row despite day_config_map/
+    # weights already being preloaded above.
+    for mk in marks:
+        mk.eff = mk.effective_count(day_config_map, weights)
+    total_meals = sum((mk.eff for mk in marks), Decimal('0'))
     total_exp   = exps.aggregate(t=Sum('amount'))['t'] or Decimal('0')
     total_dep   = deps.aggregate(t=Sum('amount'))['t'] or Decimal('0')
     return render(request, 'reports/daily.html', {
@@ -942,7 +949,7 @@ window.onload = function() {
         )
 
     fund_bal   = float(stats['fund_balance'])
-    fund_color = '#1a7a1a' if fund_bal >= 0 else '#cc0000'
+    fund_color = '#000'
 
     html = f"""<!DOCTYPE html>
 <html lang="bn">
@@ -961,26 +968,26 @@ body{{
 }}
 /* ALL labels bold — universal rule */
 *{{font-weight:700}}
-.hdr{{text-align:center;background:#1e2235;color:#fff;padding:6px 10px 5px;border-radius:3px;margin-bottom:6px}}
+.hdr{{text-align:center;background:#F2E6D8;color:#000;padding:6px 10px 5px;border-radius:3px;margin-bottom:6px}}
 .hdr-t1{{font-size:14pt;margin-bottom:2px}}
-.hdr-t2{{font-size:10pt;color:#aaaacc}}
+.hdr-t2{{font-size:10pt;color:#000}}
 .sum{{display:flex;gap:4px;margin-bottom:6px}}
-.sc{{flex:1;border:1.5px solid #aaa;border-radius:2px;padding:4px 5px;text-align:center;background:#eef0ff}}
-.sc-l{{font-size:8pt;color:#333366;margin-bottom:1px}}
+.sc{{flex:1;border:1.5px solid #000;border-radius:2px;padding:4px 5px;text-align:center;background:#eef0ff}}
+.sc-l{{font-size:8pt;color:#000;margin-bottom:1px}}
 .sc-v{{font-size:11pt}}
 table{{width:100%;border-collapse:collapse;font-size:9.5pt}}
-th{{background:#4f46e5;color:#fff;padding:5px 4px;text-align:center;
+th{{background:#fff;color:#000;padding:5px 4px;text-align:center;
     border:1px solid #000;line-height:1.3}}
 th.name{{text-align:left;padding-left:7px}}
-td{{padding:4px 4px;border:1px solid #bbb;text-align:center;vertical-align:middle;line-height:1.3}}
+td{{padding:4px 4px;border:1px solid #000;text-align:center;vertical-align:middle;line-height:1.3}}
 td.name{{text-align:left;padding-left:7px}}
-td.sl{{font-size:8.5pt;color:#333;width:22px}}
+td.sl{{font-size:8.5pt;color:#000;width:22px}}
 tr:nth-child(even){{background:#f0f0f0}}
 tr:nth-child(odd){{background:#fff}}
-tfoot tr td{{background:#1e2235;color:#fff;border:1px solid #000;padding:5px 4px;text-align:center}}
+tfoot tr td{{background:#F2E6D8;color:#000;border:1px solid #000;padding:5px 4px;text-align:center}}
 tfoot tr td.name{{text-align:left;padding-left:7px}}
-.pabe{{color:#000000}}
-.dibe{{color:#000000}}
+.pabe{{color:#000}}
+.dibe{{color:#000}}
 .foot{{margin-top:6px;border-top:1px solid #aaa;padding-top:4px;
        display:flex;justify-content:space-between;font-size:8pt;color:#444}}
 .sigs{{display:flex;justify-content:space-between;margin-top:14px;padding:0 8px}}

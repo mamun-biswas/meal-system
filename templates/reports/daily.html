@@ -77,7 +77,7 @@
               <td class="mono" style="color:var(--accent)">{{ mk.lunch }}</td>
               <td class="mono" style="color:#8b5cf6">{{ mk.dinner }}</td>
               <td class="mono fw-700">{{ mk.count }}</td>
-              <td class="mono" style="color:var(--accent)">{{ mk.effective_count|floatformat:2 }}</td>
+              <td class="mono" style="color:var(--accent)">{{ mk.eff|floatformat:2 }}</td>
               <td class="text-muted text-sm">{{ mk.note|default:"—" }}</td>
             </tr>
             {% empty %}

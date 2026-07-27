@@ -22,7 +22,7 @@
   <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
     <div class="avatar xl" style="background:{{ target.avatar_color }}">{{ target.initials }}</div>
     <div style="flex:1;min-width:0">
-      <div style="font-size:22px;font-weight:800">{{ target.name }}</div>
+      <div class="member-name-header" style="font-size:22px;font-weight:800">{{ target.name }}</div>
       <div style="color:var(--t2);margin-top:4px">📱 {{ target.phone }}{% if target.room_number %} · 🚪 Room {{ target.room_number }}{% endif %}</div>
       <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
         <span class="badge role-{{ target.role }}">{{ target.get_role_display }}</span>
@@ -32,7 +32,7 @@
     {% if mem_stat %}
     <div style="text-align:right">
       <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px">Net Balance</div>
-      <div style="font-size:36px;font-weight:800;font-family:'JetBrains Mono',monospace;color:{% if mem_stat.balance >= 0 %}var(--green){% else %}var(--red){% endif %}">
+      <div class="balance-display" style="font-size:36px;font-weight:800;font-family:'JetBrains Mono',monospace;color:{% if mem_stat.balance >= 0 %}var(--green){% else %}var(--red){% endif %}">
         {% if mem_stat.balance >= 0 %}+{% endif %}৳{{ mem_stat.balance|floatformat:2 }}
       </div>
       <div style="font-size:12px;color:var(--t3);margin-top:4px">
@@ -141,7 +141,7 @@
             <td class="mono" style="color:var(--accent)">{{ mk.lunch }}</td>
             <td class="mono" style="color:#8b5cf6">{{ mk.dinner }}</td>
             <td class="mono fw-700">{{ mk.count }}</td>
-            <td class="mono" style="color:var(--accent)">{{ mk.effective_count|floatformat:2 }}</td>
+            <td class="mono" style="color:var(--accent)">{{ mk.eff|floatformat:2 }}</td>
           </tr>
           {% empty %}
           <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--t3)">No meals this month</td></tr>
@@ -156,7 +156,7 @@
 {% if mem_stat %}
 <div class="card">
   <div class="card-title mb-4">📋 Final Statement — {{ month_name }} {{ year }}</div>
-  <div style="max-width:420px">
+  <div style="max-width:420px;margin:0 auto">
     <div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--bd)">
       <span class="text-muted">Effective Meals</span>
       <span class="mono fw-600">{{ mem_stat.eff_meals|floatformat:2 }}</span>

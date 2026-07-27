@@ -196,8 +196,20 @@ def member_statement(request, pk):
     mem_stat = next((s for s in stats['per_member'] if s['member'].id == target.id), None)
     deps     = Deposit.objects.filter(member=target, date__month=month,
                                       date__year=year).order_by('date')
-    marks    = MealMark.objects.filter(member=target, date__month=month,
-                                       date__year=year).order_by('date')
+    # Materialized to a list (not left as a QuerySet) so the effective/
+    # special-day values can be precomputed once here and attached as
+    # plain attributes. statement.html displays {{ mk.eff }} instead of
+    # calling {{ mk.effective_count }} directly — Django templates call
+    # methods with zero arguments, so without this the per-row DayConfig
+    # + MealCountSettings queries would still fire once per mark despite
+    # compute_month_stats() above already being N+1-free.
+    marks    = list(MealMark.objects.filter(member=target, date__month=month,
+                                       date__year=year).select_related('member__mess').order_by('date'))
+    day_config_map, weights = MealMark.preload_calc_context(
+        target.mess, dates=(mk.date for mk in marks))
+    for mk in marks:
+        mk.eff = mk.effective_count(day_config_map, weights)
+        mk.special = mk.is_special_day(day_config_map)
     # Fetch finalised closing record for this member+month if it exists
     closing_record = None
     try:

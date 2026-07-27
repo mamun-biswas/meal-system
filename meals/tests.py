@@ -1617,7 +1617,7 @@ class MonthlyMealRecordPageTests(TestCase):
         self.client.login(username='mmrmgr', password='pass1234')
         resp = self.client.get(reverse('dashboard'))
         content = resp.content.decode()
-        self.assertIn('.main{margin-left:260px;display:flex;flex-direction:column;min-height:100vh;min-width:0;', content)
+        self.assertIn('.main{margin-left:260px;width:calc(100% - 260px);display:flex;flex-direction:column;min-height:100vh;min-width:0;', content)
         self.assertIn('.content{padding:24px 28px;flex:1;min-width:0}', content)
 
 

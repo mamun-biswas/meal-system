@@ -5,15 +5,13 @@
 {% block page_sub %}{{ target.phone }} · {{ target.get_role_display }}{% endblock %}
 {% block nav_profile %}active{% endblock %}
 {% block content %}
-<div style="max-width:900px">
-
-  <!-- Hero Banner -->
+<div style="max-width:900px;margin:0 auto">
   <div class="card" style="margin-bottom:20px;background:linear-gradient(135deg,var(--bg2) 60%,var(--accent-soft));border-color:var(--accent);position:relative;overflow:hidden">
     <div style="position:absolute;right:-30px;top:-30px;width:180px;height:180px;background:var(--accent);opacity:.06;border-radius:50%"></div>
     <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;position:relative">
       <div class="avatar xl" style="background:{{ target.avatar_color }};box-shadow:0 4px 20px {{ target.avatar_color }}55;border:3px solid var(--accent)">{{ target.initials }}</div>
       <div style="flex:1;min-width:180px">
-        <div style="font-size:26px;font-weight:800;letter-spacing:-.5px">{{ target.name }}</div>
+        <div class="member-name-header" style="font-size:26px;font-weight:800;letter-spacing:-.5px">{{ target.name }}</div>
         <div style="color:var(--t2);margin-top:6px;font-size:14px;display:flex;gap:16px;flex-wrap:wrap">
           <span>📱 {{ target.phone }}</span>
           {% if target.room_number %}<span>🚪 Room {{ target.room_number }}</span>{% endif %}
@@ -152,8 +150,8 @@
             {% if mk.lunch %}<span class="badge badge-accent" style="font-family:'JetBrains Mono',monospace;padding:2px 6px;font-size:10px" title="Lunch">L:{{ mk.lunch }}</span>{% endif %}
             {% if mk.dinner %}<span class="badge" style="background:#8b5cf6;color:#fff;font-family:'JetBrains Mono',monospace;padding:2px 6px;font-size:10px" title="Dinner">D:{{ mk.dinner }}</span>{% endif %}
             <span class="badge" style="background:var(--bg4);color:var(--t);font-family:'JetBrains Mono',monospace;font-weight:700;padding:3px 8px" title="Total meals">{{ mk.count }}</span>
-            <span class="badge" style="background:{% if mk.is_special_day %}var(--amber-soft){% else %}var(--purple-soft){% endif %};color:{% if mk.is_special_day %}var(--amber){% else %}var(--purple){% endif %};font-family:'JetBrains Mono',monospace;font-weight:700;padding:3px 8px" title="Effective meals (used for cost calculation)">
-              {{ mk.effective_count|floatformat:1 }}{% if mk.is_special_day %} ⚡{% endif %}
+            <span class="badge" style="background:{% if mk.special %}var(--amber-soft){% else %}var(--purple-soft){% endif %};color:{% if mk.special %}var(--amber){% else %}var(--purple){% endif %};font-family:'JetBrains Mono',monospace;font-weight:700;padding:3px 8px" title="Effective meals (used for cost calculation)">
+              {{ mk.eff|floatformat:1 }}{% if mk.special %} ⚡{% endif %}
             </span>
           </div>
         </div>

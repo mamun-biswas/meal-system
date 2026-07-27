@@ -24,7 +24,7 @@
   <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
     <div class="avatar xl" style="background:{{ target.avatar_color }};box-shadow:0 0 0 4px var(--accent-soft)">{{ target.initials }}</div>
     <div style="flex:1;min-width:0">
-      <div style="font-size:24px;font-weight:800;letter-spacing:-.5px">{{ target.name }}</div>
+      <div class="member-name-header" style="font-size:24px;font-weight:800;letter-spacing:-.5px">{{ target.name }}</div>
       <div style="color:var(--t2);margin-top:5px;display:flex;gap:16px;flex-wrap:wrap;font-size:13px">
         <span>📱 {{ target.phone }}</span>
         {% if target.room_number %}<span>🚪 Room {{ target.room_number }}</span>{% endif %}
@@ -38,7 +38,7 @@
     {% if mem_stat %}
     <div style="text-align:center;background:var(--bg4);border-radius:14px;padding:18px 24px;flex-shrink:0">
       <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:6px">Net Balance</div>
-      <div style="font-size:38px;font-weight:800;font-family:'JetBrains Mono',monospace;color:{% if mem_stat.balance >= 0 %}var(--green){% else %}var(--red){% endif %}">
+      <div class="balance-display" style="font-size:38px;font-weight:800;font-family:'JetBrains Mono',monospace;color:{% if mem_stat.balance >= 0 %}var(--green){% else %}var(--red){% endif %}">
         {% if mem_stat.balance >= 0 %}+{% endif %}৳{{ mem_stat.balance|floatformat:2 }}
       </div>
       <div style="font-size:12px;margin-top:5px;font-weight:600;color:{% if mem_stat.balance >= 0 %}var(--green){% else %}var(--red){% endif %}">
@@ -170,9 +170,9 @@
             <td>
               <span class="badge badge-accent" style="font-family:'JetBrains Mono',monospace">{{ mk.count }}</span>
             </td>
-            <td class="mono" style="color:{% if mk.is_special_day %}var(--amber){% else %}var(--accent){% endif %}">
-              {{ mk.effective_count|floatformat:2 }}
-              {% if mk.is_special_day %}<span class="text-xs" style="color:var(--amber)"> ⚡</span>{% endif %}
+            <td class="mono" style="color:{% if mk.special %}var(--amber){% else %}var(--accent){% endif %}">
+              {{ mk.eff|floatformat:2 }}
+              {% if mk.special %}<span class="text-xs" style="color:var(--amber)"> ⚡</span>{% endif %}
             </td>
           </tr>
           {% empty %}
@@ -207,7 +207,7 @@
     </span>
   </div>
   <hr class="divider">
-  <div style="max-width:500px">
+  <div style="max-width:500px;margin:0 auto">
     <!-- Line items -->
     <div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--bd)">
       <span class="text-muted">Effective Meals ({{ mem_stat.raw_meals|floatformat:1 }} raw × multipliers)</span>

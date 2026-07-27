@@ -34,8 +34,8 @@
   --shadow:0 4px 16px rgba(0,0,0,.08);--shadow-sm:0 2px 6px rgba(0,0,0,.06);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t);min-height:100vh;font-size:14px;line-height:1.6;transition:background .25s,color .25s}
+html{scroll-behavior:smooth;overflow-x:hidden}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t);min-height:100vh;font-size:14px;line-height:1.6;transition:background .25s,color .25s;overflow-x:hidden}
 a{color:var(--accent);text-decoration:none}
 .app{display:flex;min-height:100vh}
 .sidebar{width:260px;background:var(--bg2);border-right:1px solid var(--bd);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:200;transition:transform .25s ease}
@@ -59,7 +59,7 @@ a{color:var(--accent);text-decoration:none}
 .avatar.xl{width:72px;height:72px;font-size:22px}
 .sb-user-name{font-size:13px;font-weight:600;line-height:1.2;color:var(--t)}
 .sb-user-role{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px}
-.main{margin-left:260px;display:flex;flex-direction:column;min-height:100vh;min-width:0;transition:margin .25s}
+.main{margin-left:260px;width:calc(100% - 260px);display:flex;flex-direction:column;min-height:100vh;min-width:0;transition:margin .25s,width .25s}
 .topbar{position:sticky;top:0;z-index:100;background:rgba(10,11,15,.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--bd);padding:0 28px;height:58px;display:flex;align-items:center;justify-content:space-between}
 [data-theme="light"] .topbar{background:rgba(248,250,252,.92)}
 .topbar-left{display:flex;align-items:center;gap:14px}
@@ -71,8 +71,11 @@ a{color:var(--accent);text-decoration:none}
 .icon-btn{width:36px;height:36px;border:1px solid var(--bd);border-radius:8px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--t2);font-size:16px;transition:all .15s;position:relative;text-decoration:none}
 .icon-btn:hover{background:var(--bg3);color:var(--t)}
 .notif-dot{position:absolute;top:6px;right:6px;width:8px;height:8px;background:var(--red);border-radius:50%;border:2px solid var(--bg2)}
+/* min-width:0 is required (not decorative) — without it the wide
+   matrix table's min-content size forces this flex item wider instead
+   of scrolling internally. */
 .content{padding:24px 28px;flex:1;min-width:0}
-.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px}
 .stat-card{background:var(--bg2);border:1px solid var(--bd);border-radius:14px;padding:20px;position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s}
 .stat-card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
 .stat-card::after{content:'';position:absolute;top:0;right:0;width:80px;height:80px;border-radius:0 14px 0 80px;opacity:.07}
@@ -186,15 +189,13 @@ hr.divider{border:none;border-top:1px solid var(--bd);margin:16px 0}
 .spinner{width:18px;height:18px;border:2px solid var(--bd2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
 .ann-low{border-left:3px solid var(--t3)}.ann-normal{border-left:3px solid var(--blue)}.ann-high{border-left:3px solid var(--amber)}.ann-urgent{border-left:3px solid var(--red)}
-@media print{.sidebar,.topbar,#toast-container,.btn,.modal-overlay{display:none!important}.main{margin-left:0!important}.content{padding:0!important}}
-@media(max-width:1200px){.stat-grid{grid-template-columns:1fr 1fr 1fr 1fr}}
-@media(max-width:1024px){.stat-grid{grid-template-columns:1fr 1fr}}
+@media print{.sidebar,.topbar,#toast-container,.btn,.modal-overlay{display:none!important}.main{margin-left:0!important;width:100%!important}.content{padding:0!important}}
 .sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:190;opacity:0;transition:opacity .2s}
 .sidebar-backdrop.show{display:block;opacity:1}
 .signout-label{display:inline}
 @media(max-width:768px){
   .sidebar{transform:translateX(-260px)}.sidebar.mobile-open{transform:translateX(0)}
-  .main{margin-left:0!important}.stat-grid{grid-template-columns:1fr 1fr}
+  .main{margin-left:0!important;width:100%!important}
   .grid-2,.grid-3{grid-template-columns:1fr}.form-row,.form-row-3{grid-template-columns:1fr}
   .content{padding:16px}
   /* Topbar: allow wrapping instead of overflowing off-screen, and give
@@ -209,19 +210,35 @@ hr.divider{border:none;border-top:1px solid var(--bd);margin:16px 0}
      single column on mobile so their minimum column width can never
      force the page wider than the viewport. */
   #meal-cards-grid{grid-template-columns:1fr!important}
+  /* Tablet-tier text/component scale — sits between full desktop sizing
+     and the more aggressive phone tier below, so a tablet or a phone in
+     landscape isn't stuck rendering everything at full desktop size. */
+  body{font-size:13.5px}
+  .stat-val{font-size:24px}
+  .stat-icon{font-size:19px;top:14px;right:14px}
+  .card-title{font-size:12.5px}
+  .btn{padding:8px 16px;font-size:12.5px}
+  .btn-sm{padding:6px 12px;font-size:11.5px}
+  .table-wrap th{padding:10px 14px;font-size:10.5px}
+  .table-wrap td{padding:11px 14px;font-size:12.5px}
+  .avatar{width:32px;height:32px;font-size:11.5px}
+  .balance-display{font-size:28px!important}
+  .member-name-header{font-size:19px!important}
 }
 @media(max-width:480px){
+  .balance-display{font-size:23px!important}
+  .member-name-header{font-size:17px!important}
   body{font-size:13px}
   .content{padding:12px}
   .topbar{padding:8px 12px}
   .topbar-title{font-size:13px;max-width:170px}
   .menu-btn,.icon-btn{width:32px;height:32px;font-size:15px}
   .signout-label{display:none}
-  .stat-grid{grid-template-columns:1fr!important}
   .stat-card{padding:14px}
   .stat-val{font-size:22px}
   .stat-icon{font-size:18px;top:12px;right:12px}
   .card{padding:14px}
+  .card-title{font-size:12px}
   .modal{width:100%!important}
   .modal.modal-lg,.modal.modal-xl{width:100%!important}
   .modal-header{padding:16px 18px 12px}
@@ -333,23 +350,11 @@ input[type="week"]::-webkit-calendar-picker-indicator:hover{
       <a href="/activity-log/" class="sb-item {% block nav_log %}{% endblock %}"><span class="ico">📜</span>Activity Log</a>
       {% endif %}
     </nav>
-    <script>
-    // Restore the sidebar's scroll position as early as possible (right
-    // after the nav markup is parsed) so a full page reload — clicking
-    // Settings/Activity Log near the bottom of the list — doesn't snap
-    // the sidebar back to the top before the user sees the active item.
-    (function(){
-      var nav = document.getElementById('sbNav');
-      if(!nav) return;
-      var saved = sessionStorage.getItem('sbNavScroll');
-      if(saved !== null){
-        nav.scrollTop = parseInt(saved, 10) || 0;
-      } else {
-        var active = nav.querySelector('.sb-item.active');
-        if(active) active.scrollIntoView({block:'center'});
-      }
-    })();
-    </script>
+    <!-- Sidebar scroll position is persisted across page loads (see script
+         below): we restore #sbNav's scrollTop to wherever the user had it
+         before navigating, instead of auto-scrolling/centering the active
+         item. This keeps the nav visually stable at the position the user
+         left it in, rather than jumping to top or to a computed offset. -->
     <div class="sb-foot">
       <!-- Active Month Indicator -->
       <a href="/meals/settings/" style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--accent-soft);border:1px solid var(--accent);border-radius:9px;margin-bottom:10px;text-decoration:none;transition:background .15s" onmouseover="this.style.background='rgba(99,102,241,.22)'" onmouseout="this.style.background='var(--accent-soft)'">
@@ -448,7 +453,26 @@ input[type="week"]::-webkit-calendar-picker-indicator:hover{
 <script>
 (function(){const t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t);const b=document.getElementById('theme-btn');if(b)b.textContent=t==='dark'?'🌙':'☀️';})();
 function toggleTheme(){const c=document.documentElement.getAttribute('data-theme'),n=c==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);localStorage.setItem('theme',n);const b=document.getElementById('theme-btn');if(b)b.textContent=n==='dark'?'🌙':'☀️';}
-function toggleSidebar(){const s=document.getElementById('sidebar'),m=document.getElementById('main'),bd=document.getElementById('sidebarBackdrop');if(window.innerWidth<=768){s.classList.toggle('mobile-open');if(bd)bd.classList.toggle('show',s.classList.contains('mobile-open'));document.body.style.overflow=s.classList.contains('mobile-open')?'hidden':'';}else{s.classList.toggle('collapsed');if(s.classList.contains('collapsed')){m.style.marginLeft='0';}else{m.style.marginLeft='260px';}}}
+function toggleSidebar(){const s=document.getElementById('sidebar'),m=document.getElementById('main'),bd=document.getElementById('sidebarBackdrop');if(window.innerWidth<=768){s.classList.toggle('mobile-open');if(bd)bd.classList.toggle('show',s.classList.contains('mobile-open'));document.body.style.overflow=s.classList.contains('mobile-open')?'hidden':'';}else{s.classList.toggle('collapsed');if(s.classList.contains('collapsed')){m.style.marginLeft='0';m.style.width='100%';}else{m.style.marginLeft='260px';m.style.width='calc(100% - 260px)';}}}
+(function(){
+  // Persist the sidebar nav's scroll position across full page loads,
+  // so clicking a link (e.g. Settings, Activity Log) that's scrolled
+  // into view doesn't snap the sidebar back to the top on the next page.
+  var nav = document.getElementById('sbNav');
+  if(!nav) return;
+  var KEY = 'sbNavScrollTop';
+  var saved = sessionStorage.getItem(KEY);
+  if(saved !== null){
+    nav.scrollTop = parseInt(saved, 10) || 0;
+  }
+  var save = function(){ sessionStorage.setItem(KEY, nav.scrollTop); };
+  nav.addEventListener('scroll', save, {passive:true});
+  // Belt-and-braces: also capture the position right as a nav link is
+  // clicked/before the page unloads, in case the scroll event above
+  // hasn't fired for the very last pixel of movement.
+  nav.addEventListener('click', save);
+  window.addEventListener('beforeunload', save);
+})();
 function getCsrf(){return document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('csrftoken='))?.split('=')[1]||'';}
 async function apiCall(url,method='GET',body=null){const o={method,headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()}};if(body)o.body=JSON.stringify(body);const r=await fetch(url,o);const d=await r.json();if(!r.ok)throw new Error(d.error||'Request failed');return d;}
 function toast(title,msg,type='success'){const icons={success:'✅',error:'❌',warning:'⚠️',info:'ℹ️'};const c=document.getElementById('toast-container');const t=document.createElement('div');t.className=`toast toast-${type}`;t.innerHTML=`<span class="toast-icon">${icons[type]||'ℹ️'}</span><div><div class="toast-title">${title}</div>${msg?`<div class="toast-msg">${msg}</div>`:''}</div>`;c.appendChild(t);requestAnimationFrame(()=>requestAnimationFrame(()=>t.classList.add('show')));setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.remove(),400);},4000);}
@@ -467,15 +491,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     const wrap=document.getElementById('month-switcher-wrap');
     if(wrap&&!wrap.contains(e.target)){const p=document.getElementById('month-switcher-panel');if(p)p.style.display='none';}
   });
-  // Keep the sidebar scrolled to wherever the user left it (e.g. down
-  // near Settings / Activity Log) across full page navigations.
-  const sbNav=document.getElementById('sbNav');
-  if(sbNav){
-    const saveScroll=()=>sessionStorage.setItem('sbNavScroll',sbNav.scrollTop);
-    sbNav.addEventListener('scroll',saveScroll,{passive:true});
-    window.addEventListener('pagehide',saveScroll);
-    window.addEventListener('beforeunload',saveScroll);
-  }
 });
 </script>
 {% block extra_js %}{% endblock %}

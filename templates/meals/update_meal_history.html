@@ -5,9 +5,7 @@
 {% block nav_update_history %}active{% endblock %}
 {% block content %}
 
-<div style="max-width:900px">
-
-  <!-- Lookup Card -->
+<div style="max-width:900px;margin:0 auto">
   <div class="card" style="margin-bottom:24px">
     <div class="card-header">
       <div>
@@ -188,7 +186,7 @@
             <td>
               <span class="badge badge-accent mono">{{ mk.count }}</span>
             </td>
-            <td class="mono text-muted">{{ mk.effective_count|floatformat:2 }}</td>
+            <td class="mono text-muted">{{ mk.eff|floatformat:2 }}</td>
             <td class="text-muted text-sm">{{ mk.marked_by.name|default:"—" }}</td>
             <td>
               <a href="/meals/update-history/?member_id={{ selected_member.id }}&date={{ mk.date|date:'Y-m-d' }}"

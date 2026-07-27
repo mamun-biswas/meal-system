@@ -454,9 +454,21 @@ def my_statement(request):
     deposits = Deposit.objects.filter(
         member=member, date__month=month, date__year=year
     ).order_by('date')
-    meal_marks = MealMark.objects.filter(
+    # See finance.views.member_statement for why this is materialized to
+    # a list with precomputed .eff/.special attributes rather than left
+    # as a bare QuerySet: my_statement.html displays {{ mk.eff }} /
+    # {{ mk.special }}, and Django templates call a method with zero
+    # arguments, which would otherwise re-trigger the per-row DayConfig +
+    # MealCountSettings queries regardless of compute_month_stats() above
+    # already being N+1-free.
+    meal_marks = list(MealMark.objects.filter(
         member=member, date__month=month, date__year=year
-    ).order_by('date')
+    ).select_related('member__mess').order_by('date'))
+    day_config_map, weights = MealMark.preload_calc_context(
+        member.mess, dates=(mk.date for mk in meal_marks))
+    for mk in meal_marks:
+        mk.eff = mk.effective_count(day_config_map, weights)
+        mk.special = mk.is_special_day(day_config_map)
 
     # Fetch finalised closing record for this member+month if it exists
     closing_record = None
@@ -530,7 +542,17 @@ def profile_view(request):
     # Stats for profile page
     month, year = get_active_my(request)
     import calendar as _cal
-    recent_meals = MealMark.objects.filter(member=member).order_by('-date')[:10]
+    # DayConfig/MealCountSettings preloaded once for the whole mess (not
+    # date-filtered, so it's valid for both the "this month" figures
+    # below and the last-10 "recent meals" list, whatever dates those
+    # happen to span) — reused everywhere effective_count()/
+    # is_special_day() is needed on this page so neither ever falls back
+    # to its slow, query-per-row default path.
+    day_config_map, weights = MealMark.preload_calc_context(member.mess)
+    recent_meals = list(MealMark.objects.filter(member=member).select_related('member__mess').order_by('-date')[:10])
+    for mk in recent_meals:
+        mk.eff = mk.effective_count(day_config_map, weights)
+        mk.special = mk.is_special_day(day_config_map)
     recent_deposits = Deposit.objects.filter(member=member).order_by('-date')[:5]
     this_month_marks = MealMark.objects.filter(
         member=member, date__month=month, date__year=year
@@ -545,11 +567,8 @@ def profile_view(request):
     # per-mark from MealCountSettings x DayConfig.
     #
     # this_month_marks is materialized once here (it's a QuerySet, so
-    # iterating it twice would otherwise re-run the query), and
-    # DayConfig/MealCountSettings are preloaded once for the mess so
-    # effective_count()/is_special_day() below don't hit the DB per row.
+    # iterating it twice would otherwise re-run the query).
     this_month_marks_list = list(this_month_marks.select_related('member__mess'))
-    day_config_map, weights = MealMark.preload_calc_context(member.mess)
     this_month_effective = sum(
         (mk.effective_count(day_config_map, weights) for mk in this_month_marks_list), Decimal('0'))
     this_month_has_special = any(mk.is_special_day(day_config_map) for mk in this_month_marks_list)

@@ -745,7 +745,10 @@ def announcement_save(request):
         posted_by=request.user.member,
     )
     from accounts.models import Notification
-    Notification.objects.create(mess=request.user.member.mess, broadcast=True, title=a.title, message=a.body, ntype='info')
+    Notification.objects.create(
+        mess=request.user.member.mess, broadcast=True, title=a.title, message=a.body,
+        ntype='info', announcement=a,
+    )
     log_action(request.user.member, f'Posted announcement: {a.title}', request=request)
     return JsonResponse({'ok': True, 'id': a.pk})
 
@@ -757,6 +760,8 @@ def announcement_delete(request, pk):
     title = a.title
     a.is_active = False
     a.save()
+    from accounts.models import Notification
+    Notification.objects.filter(announcement=a).delete()
     log_action(request.user.member, f'Deleted announcement: {title}', request=request)
     return JsonResponse({'ok': True})
 

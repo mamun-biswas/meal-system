@@ -147,7 +147,7 @@
       <div><div class="section-title">🍽 My Meal Record</div><div class="section-sub">{{ meal_marks|length }} days with meals in {{ month_name }}</div></div>
     </div>
     <div class="table-wrap" style="max-height:420px;overflow-y:auto">
-      <table>
+      <table class="responsive-table">
         <thead>
           <tr>
             <th>Date</th>
@@ -162,15 +162,15 @@
         <tbody>
           {% for mk in meal_marks %}
           <tr>
-            <td class="mono text-sm">{{ mk.date }}</td>
-            <td class="text-muted text-sm">{{ mk.date|date:"D" }}</td>
-            <td class="mono" style="color:#f97316">{{ mk.morning }}</td>
-            <td class="mono" style="color:var(--accent)">{{ mk.lunch }}</td>
-            <td class="mono" style="color:#8b5cf6">{{ mk.dinner }}</td>
-            <td>
+            <td class="mono text-sm" data-label="Date">{{ mk.date }}</td>
+            <td class="text-muted text-sm" data-label="Day">{{ mk.date|date:"D" }}</td>
+            <td class="mono" data-label="Morning" style="color:#f97316">{{ mk.morning }}</td>
+            <td class="mono" data-label="Lunch" style="color:var(--accent)">{{ mk.lunch }}</td>
+            <td class="mono" data-label="Dinner" style="color:#8b5cf6">{{ mk.dinner }}</td>
+            <td data-label="Total">
               <span class="badge badge-accent" style="font-family:'JetBrains Mono',monospace">{{ mk.count }}</span>
             </td>
-            <td class="mono" style="color:{% if mk.special %}var(--amber){% else %}var(--accent){% endif %}">
+            <td class="mono" data-label="Effective" style="color:{% if mk.special %}var(--amber){% else %}var(--accent){% endif %}">
               {{ mk.eff|floatformat:2 }}
               {% if mk.special %}<span class="text-xs" style="color:var(--amber)"> ⚡</span>{% endif %}
             </td>
@@ -185,10 +185,10 @@
           {% endfor %}
           {% if meal_marks %}
           <tr style="background:var(--bg3)">
-            <td colspan="2" class="fw-700">Total</td>
-            <td></td><td></td><td></td>
-            <td class="mono fw-700" style="color:var(--accent)">{{ mem_stat.raw_meals|floatformat:1 }}</td>
-            <td class="mono fw-700" style="color:var(--accent)">{{ mem_stat.eff_meals|floatformat:2 }}</td>
+            <td colspan="2" class="fw-700" data-label="Total">Total</td>
+            <td data-label="Morning"></td><td data-label="Lunch"></td><td data-label="Dinner"></td>
+            <td class="mono fw-700" data-label="Raw" style="color:var(--accent)">{{ mem_stat.raw_meals|floatformat:1 }}</td>
+            <td class="mono fw-700" data-label="Effective" style="color:var(--accent)">{{ mem_stat.eff_meals|floatformat:2 }}</td>
           </tr>
           {% endif %}
         </tbody>

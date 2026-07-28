@@ -207,6 +207,13 @@ class Notification(models.Model):
     ntype      = models.CharField(max_length=20, choices=TYPE_CHOICES, default=TYPE_INFO)
     is_read    = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    # Links this notification back to the Announcement that spawned it (if any),
+    # so that deleting the Announcement can also clean up its Notification.
+    # String reference avoids a circular import (meals.models imports accounts.models).
+    announcement = models.ForeignKey(
+        'meals.Announcement', on_delete=models.CASCADE, null=True, blank=True,
+        related_name='notifications'
+    )
 
     objects = MessScopedManager()
     all_objects = models.Manager()

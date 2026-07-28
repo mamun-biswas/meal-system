@@ -91,13 +91,13 @@
         <div class="form-group" style="margin-bottom:0">
           <label class="form-label" style="color:#f97316;font-weight:700">🌅 Morning</label>
           <div style="display:flex;align-items:center;gap:8px">
-            <button type="button" onclick="adjustCount('morning',-1)" class="btn btn-ghost btn-sm" style="padding:8px 12px;font-size:16px">−</button>
+            <button type="button" onclick="adjustCount('morning',-0.5)" class="btn btn-ghost btn-sm" style="padding:8px 12px;font-size:16px">−</button>
             <input type="number" name="morning" id="morning-input" class="form-control"
                    value="{{ current_mark.morning|default:'0' }}"
-                   min="0" max="10" step="1"
+                   min="0" max="10" step="0.5"
                    style="width:70px;text-align:center;font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;padding:8px;border-color:#f97316;color:#f97316"
                    oninput="updateTotal()">
-            <button type="button" onclick="adjustCount('morning',1)" class="btn btn-ghost btn-sm" style="padding:8px 12px;font-size:16px">+</button>
+            <button type="button" onclick="adjustCount('morning',0.5)" class="btn btn-ghost btn-sm" style="padding:8px 12px;font-size:16px">+</button>
           </div>
         </div>
 
@@ -105,13 +105,13 @@
         <div class="form-group" style="margin-bottom:0">
           <label class="form-label" style="color:var(--accent);font-weight:700">☀️ Lunch</label>
           <div style="display:flex;align-items:center;gap:8px">
-            <button type="button" onclick="adjustCount('lunch',-1)" class="btn btn-ghost btn-sm" style="padding:8px 12px;font-size:16px">−</button>
+            <button type="button" onclick="adjustCount('lunch',-0.5)" class="btn btn-ghost btn-sm" style="padding:8px 12px;font-size:16px">−</button>
             <input type="number" name="lunch" id="lunch-input" class="form-control"
                    value="{{ current_mark.lunch|default:'0' }}"
-                   min="0" max="10" step="1"
+                   min="0" max="10" step="0.5"
                    style="width:70px;text-align:center;font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;padding:8px;border-color:var(--accent);color:var(--accent)"
                    oninput="updateTotal()">
-            <button type="button" onclick="adjustCount('lunch',1)" class="btn btn-ghost btn-sm" style="padding:8px 12px;font-size:16px">+</button>
+            <button type="button" onclick="adjustCount('lunch',0.5)" class="btn btn-ghost btn-sm" style="padding:8px 12px;font-size:16px">+</button>
           </div>
         </div>
 
@@ -119,13 +119,13 @@
         <div class="form-group" style="margin-bottom:0">
           <label class="form-label" style="color:#8b5cf6;font-weight:700">🌙 Dinner</label>
           <div style="display:flex;align-items:center;gap:8px">
-            <button type="button" onclick="adjustCount('dinner',-1)" class="btn btn-ghost btn-sm" style="padding:8px 12px;font-size:16px">−</button>
+            <button type="button" onclick="adjustCount('dinner',-0.5)" class="btn btn-ghost btn-sm" style="padding:8px 12px;font-size:16px">−</button>
             <input type="number" name="dinner" id="dinner-input" class="form-control"
                    value="{{ current_mark.dinner|default:'0' }}"
-                   min="0" max="10" step="1"
+                   min="0" max="10" step="0.5"
                    style="width:70px;text-align:center;font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;padding:8px;border-color:#8b5cf6;color:#8b5cf6"
                    oninput="updateTotal()">
-            <button type="button" onclick="adjustCount('dinner',1)" class="btn btn-ghost btn-sm" style="padding:8px 12px;font-size:16px">+</button>
+            <button type="button" onclick="adjustCount('dinner',0.5)" class="btn btn-ghost btn-sm" style="padding:8px 12px;font-size:16px">+</button>
           </div>
         </div>
       </div>
@@ -243,23 +243,24 @@
 <script>
 function adjustCount(type, delta) {
   const inp = document.getElementById(type + '-input');
-  let val = parseInt(inp.value) || 0;
+  let val = parseFloat(inp.value) || 0;
   val = Math.max(0, Math.min(10, val + delta));
+  val = Math.round(val * 10) / 10; // avoid floating-point drift (e.g. 0.1 + 0.2)
   inp.value = val;
   updateTotal();
 }
 
 function updateTotal() {
-  const m = parseInt(document.getElementById('morning-input').value) || 0;
-  const l = parseInt(document.getElementById('lunch-input').value)   || 0;
-  const d = parseInt(document.getElementById('dinner-input').value)  || 0;
-  document.getElementById('total-display').textContent = m + l + d;
+  const m = parseFloat(document.getElementById('morning-input').value) || 0;
+  const l = parseFloat(document.getElementById('lunch-input').value)   || 0;
+  const d = parseFloat(document.getElementById('dinner-input').value)  || 0;
+  document.getElementById('total-display').textContent = (m + l + d).toFixed(1);
 }
 
 function confirmSave() {
-  const m = parseInt(document.getElementById('morning-input').value) || 0;
-  const l = parseInt(document.getElementById('lunch-input').value)   || 0;
-  const d = parseInt(document.getElementById('dinner-input').value)  || 0;
+  const m = parseFloat(document.getElementById('morning-input').value) || 0;
+  const l = parseFloat(document.getElementById('lunch-input').value)   || 0;
+  const d = parseFloat(document.getElementById('dinner-input').value)  || 0;
   if (m + l + d === 0) {
     return confirm('All values are 0 — this will remove the meal record. Continue?');
   }

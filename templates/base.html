@@ -39,6 +39,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t);min-heig
 a{color:var(--accent);text-decoration:none}
 .app{display:flex;min-height:100vh}
 .sidebar{width:260px;background:var(--bg2);border-right:1px solid var(--bd);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:200;transition:transform .25s ease}
+.sidebar.collapsed{transform:translateX(-260px)}
 .sb-logo{padding:20px 20px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:12px}
 .sb-logo-icon{width:38px;height:38px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;flex-shrink:0}
 .sb-logo-text{font-size:15px;font-weight:700;letter-spacing:-.3px}
@@ -152,7 +153,7 @@ select.form-control{cursor:pointer;appearance:none;background-image:url("data:im
 .day-chip{padding:5px 11px;border-radius:20px;font-size:11px;cursor:pointer;background:var(--bg3);border:1px solid var(--bd);color:var(--t2);font-family:'JetBrains Mono',monospace;transition:all .12s;user-select:none;font-weight:500}
 .day-chip:hover{border-color:var(--accent);color:var(--accent)}
 .day-chip.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
-.day-chip.has-data{background:var(--blue-soft);border-color:var(--blue);color:var(--blue)}
+.day-chip.has-data{background:var(--green-soft);border-color:var(--green);color:var(--green)}
 .day-chip.active{background:var(--accent-soft) !important;border-color:var(--accent) !important;color:var(--accent) !important}
 .day-chip.special{background:var(--amber-soft);border-color:var(--amber);color:var(--amber)}
 .meal-member-card{background:var(--bg3);border:1px solid var(--bd);border-radius:10px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;transition:all .15s}
@@ -257,6 +258,20 @@ hr.divider{border:none;border-top:1px solid var(--bd);margin:16px 0}
      collapse to one column so nothing can force horizontal scrolling
      on very small phones. */
   #meal-cards-grid{grid-template-columns:1fr!important}
+}
+/* Wide, many-column data tables (opted in via .responsive-table, e.g. the
+   My Meal Record table) collapse from a horizontally-scrolling grid into
+   stacked label:value rows on narrow screens — otherwise columns toward
+   the right edge (like "Effective") sit off-screen and look missing
+   rather than merely requiring a sideways scroll. */
+@media(max-width:700px){
+  .responsive-table thead{display:none}
+  .responsive-table,.responsive-table tbody,.responsive-table tr,.responsive-table td{display:block;width:100%}
+  .responsive-table tr{padding:10px 14px;border-bottom:1px solid var(--bd)}
+  .responsive-table tr:last-child{border-bottom:none}
+  .responsive-table td{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:4px 0;border:none;font-size:12.5px;white-space:normal}
+  .responsive-table td:empty{display:none}
+  .responsive-table td::before{content:attr(data-label);font-weight:700;color:var(--t3);font-size:10.5px;text-transform:uppercase;letter-spacing:.4px}
 }
 *{scrollbar-width:auto;scrollbar-color:var(--bg5) transparent}
 ::-webkit-scrollbar{width:12px;height:12px}

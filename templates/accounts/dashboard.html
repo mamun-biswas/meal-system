@@ -129,7 +129,7 @@
           <span style="font-weight:600;font-size:13px">{{ ann.title }}</span>
           <span class="badge {% if ann.priority == 'urgent' %}badge-red{% elif ann.priority == 'high' %}badge-amber{% else %}badge-blue{% endif %}" style="font-size:10px;flex-shrink:0">{{ ann.get_priority_display }}</span>
         </div>
-        <p style="font-size:12px;color:var(--t2)">{{ ann.body|truncatewords:20 }}</p>
+        <p style="font-size:12px;color:var(--t2);max-height:110px;overflow-y:auto;white-space:pre-line;margin:0;padding-right:4px">{{ ann.body }}</p>
         <div style="font-size:10px;color:var(--t3);margin-top:6px">{{ ann.created_at|timesince }} ago · {{ ann.posted_by.name|default:"Manager" }}</div>
       </div>
       {% endfor %}

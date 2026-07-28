@@ -107,13 +107,29 @@
       <button class="btn btn-ghost btn-sm" onclick="bulkSet(0,0,0)">⬜ Clear All</button>
       <button class="btn btn-ghost btn-sm" onclick="bulkSet(0,1,1)">✅ L+D All</button>
       <button class="btn btn-ghost btn-sm" onclick="bulkSet(1,1,1)">✌️ All 3</button>
-      <button class="btn btn-ghost btn-sm" id="save-morning-btn" onclick="saveDay(['morning'])">🌅 Save Morning</button>
-      <button class="btn btn-ghost btn-sm" id="save-lunch-btn" onclick="saveDay(['lunch'])">🍛 Save Lunch</button>
-      <button class="btn btn-ghost btn-sm" id="save-dinner-btn" onclick="saveDay(['dinner'])">🌙 Save Dinner</button>
-      <button class="btn btn-primary btn-sm" id="save-all-btn" onclick="saveDay(['morning','lunch','dinner'])">💾 Save All Meal</button>
       {% endif %}
     </div>
   </div>
+
+  {% if can_edit_all %}
+  <!-- COMMIT PANEL -->
+  <div class="card commit-panel" style="margin-bottom:14px">
+    <div class="commit-panel-inner" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+      <div>
+        <div class="card-title" style="margin-bottom:3px">💾 Commit Meals</div>
+        <div style="font-size:11.5px;color:var(--t3)">Save each slot on its own, or save all three together — once a slot is saved it locks and can't be edited again.</div>
+      </div>
+      <div class="commit-actions" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div class="slot-save-group">
+          <button class="btn-slot-save save-morning" id="save-morning-btn" onclick="saveDay(['morning'])"><span class="btn-ico">🌅</span>Save Morning</button>
+          <button class="btn-slot-save save-lunch" id="save-lunch-btn" onclick="saveDay(['lunch'])"><span class="btn-ico">🍛</span>Save Lunch</button>
+          <button class="btn-slot-save save-dinner" id="save-dinner-btn" onclick="saveDay(['dinner'])"><span class="btn-ico">🌙</span>Save Dinner</button>
+        </div>
+        <button class="btn-save-all" id="save-all-btn" onclick="saveDay(['morning','lunch','dinner'])"><span class="btn-ico btn-ico-light">💾</span>Save All Meal</button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
   <!-- MEAL TYPE LEGEND -->
   <div style="display:flex;gap:16px;margin-bottom:14px;font-size:12px;flex-wrap:wrap">
@@ -631,15 +647,15 @@ function updateSaveButtonsState() {
   const dBtn = document.getElementById('save-dinner-btn');
   const aBtn = document.getElementById('save-all-btn');
 
-  if (mBtn) { mBtn.disabled = lockedMorning; mBtn.innerHTML = lockedMorning ? '✅ Morning Saved' : '🌅 Save Morning'; }
-  if (lBtn) { lBtn.disabled = lockedLunch;   lBtn.innerHTML = lockedLunch   ? '✅ Lunch Saved'   : '🍛 Save Lunch'; }
-  if (dBtn) { dBtn.disabled = lockedDinner;  dBtn.innerHTML = lockedDinner  ? '✅ Dinner Saved'  : '🌙 Save Dinner'; }
+  if (mBtn) { mBtn.disabled = lockedMorning; mBtn.innerHTML = lockedMorning ? '<span class="btn-ico">✅</span>Morning Saved' : '<span class="btn-ico">🌅</span>Save Morning'; }
+  if (lBtn) { lBtn.disabled = lockedLunch;   lBtn.innerHTML = lockedLunch   ? '<span class="btn-ico">✅</span>Lunch Saved'   : '<span class="btn-ico">🍛</span>Save Lunch'; }
+  if (dBtn) { dBtn.disabled = lockedDinner;  dBtn.innerHTML = lockedDinner  ? '<span class="btn-ico">✅</span>Dinner Saved'  : '<span class="btn-ico">🌙</span>Save Dinner'; }
   // "Save All Meal" commits all three together — it must be disabled the
   // moment ANY one of the three is already locked (it can't partially
   // re-save the others alone), and clearly marked once everything is
   // locked (requirement 4/5: each slot, and the all-in-one action, can
   // only ever be committed once per day).
-  if (aBtn) { aBtn.disabled = anyLocked; aBtn.innerHTML = allLocked ? '🔒 All Meal Saved' : (anyLocked ? '🔒 Save All Meal' : '💾 Save All Meal'); }
+  if (aBtn) { aBtn.disabled = anyLocked; aBtn.innerHTML = allLocked ? '<span class="btn-ico btn-ico-light">🔒</span>All Meal Saved' : (anyLocked ? '<span class="btn-ico btn-ico-light">🔒</span>Save All Meal' : '<span class="btn-ico btn-ico-light">💾</span>Save All Meal'); }
 }
 
 async function saveDay(slots) {

@@ -111,6 +111,33 @@ a{color:var(--accent);text-decoration:none}
 .btn-danger{background:var(--red-soft);color:var(--red);border:1px solid rgba(239,68,68,.2)}.btn-danger:hover{background:rgba(239,68,68,.2)}
 .btn-success{background:var(--green-soft);color:var(--green);border:1px solid rgba(34,197,94,.2)}
 .btn-sm{padding:6px 13px;font-size:12px;border-radius:7px}.btn-xs{padding:4px 9px;font-size:11px;border-radius:6px}
+.btn:disabled{opacity:.55;cursor:not-allowed;transform:none!important;box-shadow:none!important}
+/* Meal Mark commit panel — each per-slot save is its own color-coded
+   chip (matching that slot's color elsewhere on the page), so Morning/
+   Lunch/Dinner read as three distinct actions rather than one fused
+   control. "Save All" stands apart further still as a gradient CTA. */
+.commit-panel{border-color:var(--bd2)}
+.btn-ico{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:7px;font-size:12px;flex-shrink:0;transition:background .15s}
+.slot-save-group{display:inline-flex;gap:8px}
+.btn-slot-save{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:9px;cursor:pointer;font-family:'Inter',sans-serif;font-size:12.5px;font-weight:700;transition:all .15s;white-space:nowrap}
+.btn-slot-save:active:not(:disabled){transform:scale(.96)}
+.btn-slot-save:disabled{opacity:.7;cursor:not-allowed}
+.btn-slot-save:disabled .btn-ico{background:var(--green-soft)!important}
+.save-morning{background:rgba(249,115,22,.09);border:1.5px solid rgba(249,115,22,.35);color:#f97316}
+.save-morning .btn-ico{background:rgba(249,115,22,.18)}
+.save-morning:hover:not(:disabled){background:rgba(249,115,22,.16);border-color:#f97316}
+.save-lunch{background:var(--accent-soft);border:1.5px solid rgba(99,102,241,.4);color:var(--accent)}
+.save-lunch .btn-ico{background:rgba(99,102,241,.18)}
+.save-lunch:hover:not(:disabled){background:rgba(99,102,241,.2);border-color:var(--accent)}
+.save-dinner{background:rgba(139,92,246,.09);border:1.5px solid rgba(139,92,246,.35);color:#8b5cf6}
+.save-dinner .btn-ico{background:rgba(139,92,246,.18)}
+.save-dinner:hover:not(:disabled){background:rgba(139,92,246,.16);border-color:#8b5cf6}
+.btn-save-all{display:inline-flex;align-items:center;gap:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-weight:700;padding:10px 20px 10px 10px;border-radius:11px;border:none;box-shadow:0 4px 14px rgba(99,102,241,.35);cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;transition:all .15s;white-space:nowrap}
+.btn-save-all .btn-ico-light{background:rgba(255,255,255,.22)}
+.btn-save-all:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 8px 24px rgba(99,102,241,.45)}
+.btn-save-all:active:not(:disabled){transform:translateY(0) scale(.97)}
+.btn-save-all:disabled{opacity:.55;cursor:not-allowed;box-shadow:none;transform:none;background:var(--bg4);color:var(--t3)}
+.btn-save-all:disabled .btn-ico-light{background:rgba(255,255,255,.08)}
 .form-group{margin-bottom:18px}
 .form-label{display:block;font-size:12px;font-weight:600;color:var(--t2);margin-bottom:7px}
 .form-control{width:100%;padding:10px 14px;background:var(--bg3);border:1px solid var(--bd2);border-radius:9px;color:var(--t);font-family:'Inter',sans-serif;font-size:13px;outline:none;transition:border .15s,box-shadow .15s}
@@ -219,6 +246,14 @@ hr.divider{border:none;border-top:1px solid var(--bd);margin:16px 0}
      row. On mobile a card is only as wide as the phone screen, too
      narrow to fit both side by side, so stack them instead. */
   .meal-member-card{flex-direction:column;align-items:stretch}
+  /* Commit panel: stack the title above the buttons, and lay the save
+     buttons out in a compact grid instead of a wrapping row, so they
+     stay easy to tap and read on a narrow screen. */
+  .commit-panel-inner{flex-direction:column;align-items:stretch}
+  .commit-actions{flex-direction:column;align-items:stretch;gap:10px}
+  .slot-save-group{width:100%}
+  .btn-slot-save{flex:1;justify-content:center}
+  .btn-save-all{width:100%;justify-content:center}
   /* Tablet-tier text/component scale — sits between full desktop sizing
      and the more aggressive phone tier below, so a tablet or a phone in
      landscape isn't stuck rendering everything at full desktop size. */
@@ -261,6 +296,10 @@ hr.divider{border:none;border-top:1px solid var(--bd);margin:16px 0}
   .avatar.lg{width:44px;height:44px;font-size:15px}
   .avatar.xl{width:60px;height:60px;font-size:19px}
   .meal-member-card{padding:12px}
+  .btn-slot-save{padding:8px 6px;font-size:11px;gap:4px}
+  .btn-save-all{padding:9px 14px;font-size:12px}
+  .slot-save-group{flex-direction:column;gap:4px}
+  .btn-slot-save{width:100%}
   .meal-count-input{width:56px;font-size:13px}
   .meal-inputs-grid{gap:4px!important}
   .slot-btn{width:20px;height:20px;font-size:11px}

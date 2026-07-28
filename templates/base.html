@@ -156,7 +156,7 @@ select.form-control{cursor:pointer;appearance:none;background-image:url("data:im
 .day-chip.has-data{background:var(--green-soft);border-color:var(--green);color:var(--green)}
 .day-chip.active{background:var(--accent-soft) !important;border-color:var(--accent) !important;color:var(--accent) !important}
 .day-chip.special{background:var(--amber-soft);border-color:var(--amber);color:var(--amber)}
-.meal-member-card{background:var(--bg3);border:1px solid var(--bd);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;transition:all .15s}
+.meal-member-card{background:var(--bg3);border:1px solid var(--bd);border-radius:10px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:16px;transition:all .15s}
 .meal-member-card:hover{border-color:var(--bd2)}
 .meal-member-card.has-meals{border-color:var(--accent);background:var(--accent-soft)}
 .meal-count-input{width:64px;padding:7px 10px;background:var(--bg4);border:1px solid var(--bd2);border-radius:7px;color:var(--t);font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600;text-align:center;outline:none;transition:border .15s}
@@ -214,6 +214,11 @@ hr.divider{border:none;border-top:1px solid var(--bd);margin:16px 0}
      single column on mobile so their minimum column width can never
      force the page wider than the viewport. */
   #meal-cards-grid{grid-template-columns:1fr!important}
+  /* Meal Mark member cards: on desktop the header (avatar/name/total)
+     and the Morning/Lunch/Dinner grid sit side by side in one compact
+     row. On mobile a card is only as wide as the phone screen, too
+     narrow to fit both side by side, so stack them instead. */
+  .meal-member-card{flex-direction:column;align-items:stretch}
   /* Tablet-tier text/component scale — sits between full desktop sizing
      and the more aggressive phone tier below, so a tablet or a phone in
      landscape isn't stuck rendering everything at full desktop size. */

@@ -354,15 +354,13 @@ function renderMealCards() {
         <div style="text-align:center">
           <div style="font-size:10px;font-weight:700;color:${color};margin-bottom:3px;letter-spacing:.4px">${SLOT_LABEL[slot]}</div>
           <div style="display:flex;align-items:center;gap:2px;justify-content:center">
-            <button onclick="changeVal('${m.id}','${slot}',-1)"
-              style="width:22px;height:22px;border-radius:5px;border:1px solid var(--bd2);background:var(--bg4);color:var(--t);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;font-weight:700">−</button>
-            <input type="number" id="inp_${slot}_${m.id}"
+            <button class="slot-btn" onclick="changeVal('${m.id}','${slot}',-1)">−</button>
+            <input type="number" id="inp_${slot}_${m.id}" class="slot-input"
               value="${value}" min="0" max="99" step="1"
-              style="width:44px;text-align:center;border:1px solid ${color};border-radius:5px;padding:3px;font-size:13px;font-weight:700;background:var(--bg);color:${color};font-family:'JetBrains Mono',monospace"
+              style="border-color:${color};color:${color}"
               oninput="updateVal('${m.id}','${slot}',this.value)"
               onchange="updateVal('${m.id}','${slot}',this.value)">
-            <button onclick="changeVal('${m.id}','${slot}',1)"
-              style="width:22px;height:22px;border-radius:5px;border:1px solid var(--bd2);background:var(--bg4);color:var(--t);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;font-weight:700">+</button>
+            <button class="slot-btn" onclick="changeVal('${m.id}','${slot}',1)">+</button>
           </div>
         </div>`;
       }
@@ -384,7 +382,7 @@ function renderMealCards() {
     }
 
     const mealInputs = `
-      <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+      <div class="meal-inputs-grid" style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
         ${renderSlotBlock('morning')}
         ${renderSlotBlock('lunch')}
         ${renderSlotBlock('dinner')}

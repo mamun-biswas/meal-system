@@ -386,6 +386,9 @@ input[type="week"]::-webkit-calendar-picker-indicator:hover{
       {% endif %}
       <div class="sb-section">Meals</div>
       <a href="/meals/" class="sb-item {% block nav_meals %}{% endblock %}"><span class="ico">✅</span>Meal Mark</a>
+      {% if user_member.is_manager or user_member|has_perm:"confirm_meals" %}
+      <a href="/meals/confirm/" class="sb-item {% block nav_confirm_meals %}{% endblock %}"><span class="ico">🔏</span>Confirm Meals</a>
+      {% endif %}
       <a href="/meals/monthly-record/" class="sb-item {% block nav_monthly_record %}{% endblock %}"><span class="ico">📊</span>Monthly Meal Record</a>
       {% if user_member.is_manager or user_member|has_perm:"meal_mark" %}
       <a href="/meals/update-history/" class="sb-item {% block nav_update_history %}{% endblock %}"><span class="ico">✏️</span>Update Meal History</a>

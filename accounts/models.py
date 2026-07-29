@@ -170,6 +170,7 @@ class Member(models.Model):
 class SubManagerPermission(models.Model):
     ALL_PERMS = [
         ('meal_mark',      'Mark / Edit Meals'),
+        ('confirm_meals',  'Confirm / Lock Meals'),
         ('bazar_entry',    'Add / Edit Expenses'),
         ('deposit_entry',  'Add Deposits'),
         ('delete_deposit', 'Delete Deposits'),

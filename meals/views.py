@@ -186,6 +186,25 @@ def monthly_meal_record(request):
 
 @login_required
 def meal_mark(request):
+    return _meal_entry_view(request, 'meals/meal_mark.html')
+
+
+@login_required
+@require_perm('confirm_meals')
+def confirm_meals(request):
+    """Manager/Sub-Manager (with the dedicated confirm_meals perm)
+    workspace: the day picker, quick bulk-fill shortcuts, and the
+    commit/lock buttons — i.e. everything on the old Meal Mark page
+    EXCEPT plain meal marking, which now lives only on /meals/. Reuses
+    the exact same data-building logic as meal_mark() (below) so nothing
+    about how it computes totals/locks differs; only the permission
+    gate and the template (which shows the extra controls, minus the
+    per-member marking grid) differ.
+    """
+    return _meal_entry_view(request, 'meals/confirm_meals.html')
+
+
+def _meal_entry_view(request, template_name):
     month, year = get_active_my(request)
     today       = datetime.date.today()
     actor       = request.user.member
@@ -350,7 +369,7 @@ def meal_mark(request):
         'day_range': range(1, dim + 1),
         'grid_raw': visible_grid,
     }
-    return render(request, 'meals/meal_mark.html', ctx)
+    return render(request, template_name, ctx)
 
 
 
@@ -358,7 +377,7 @@ VALID_SLOTS = ('morning', 'lunch', 'dinner')
 
 
 @login_required
-@require_perm('meal_mark')
+@require_perm('confirm_meals')
 def meal_save_day(request):
     """Commit on-screen meal counts into MealMark for a specific date.
 

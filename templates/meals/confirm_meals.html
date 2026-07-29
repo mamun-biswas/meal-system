@@ -1,9 +1,9 @@
 {% extends 'base.html' %}
 {% load perm_tags %}
-{% block title %}Meal Mark — {{ month_name }} {{ year }}{% endblock %}
-{% block nav_meals %}active{% endblock %}
-{% block page_title %}Meal Mark{% endblock %}
-{% block page_sub %}{{ month_name }} {{ year }} — record daily meals{% endblock %}
+{% block title %}Confirm Meals — {{ month_name }} {{ year }}{% endblock %}
+{% block nav_confirm_meals %}active{% endblock %}
+{% block page_title %}Confirm Meals{% endblock %}
+{% block page_sub %}{{ month_name }} {{ year }} — review and lock daily meals{% endblock %}
 
 {% block content %}
 <!-- ── MONTH / YEAR SELECTOR ─────────────────────────── -->
@@ -36,7 +36,7 @@
   {% if can_edit_all %}
   <div class="card" style="margin-bottom:18px;padding:16px 20px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-      <div style="font-size:13px;font-weight:700">📋 Draft Meals (Pending)</div>
+      <div style="font-size:13px;font-weight:700">📋 Daily Meal Count</div>
       <div style="font-size:11px;color:var(--t3)" id="draft-stat-member-count">
         {{ draft_totals.members_with_draft }} of {{ members|length }} member{{ members|length|pluralize }} with pending draft
       </div>
@@ -101,47 +101,31 @@
       <div style="font-size:16px;font-weight:700" id="day-heading">— Pick a day above —</div>
       <div style="font-size:12px;color:var(--t3);margin-top:3px" id="day-sub-heading"></div>
     </div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <span id="eff-total-badge" style="display:none" class="badge badge-accent" style="font-size:13px"></span>
-      {% if can_edit_all %}
-      <button class="btn btn-ghost btn-sm" onclick="bulkSet(0,0,0)">⬜ Clear All</button>
-      <button class="btn btn-ghost btn-sm" onclick="bulkSet(0,1,1)">✅ L+D All</button>
-      <button class="btn btn-ghost btn-sm" onclick="bulkSet(1,1,1)">✌️ All 3</button>
-      {% endif %}
+  </div>
+
+  {% if can_edit_all %}
+  <!-- COMMIT PANEL -->
+  <div class="card commit-panel" style="margin-bottom:14px">
+    <div class="commit-panel-inner" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+      <div>
+        <div class="card-title" style="margin-bottom:3px">💾 Commit Meals</div>
+        <div style="font-size:11.5px;color:var(--t3)">Save each slot on its own, or save all three together — once a slot is saved it locks and can't be edited again.</div>
+      </div>
+      <div class="commit-actions" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div class="slot-save-group">
+          <button class="btn-slot-save save-morning" id="save-morning-btn" onclick="saveDay(['morning'])"><span class="btn-ico">🌅</span>Save Morning</button>
+          <button class="btn-slot-save save-lunch" id="save-lunch-btn" onclick="saveDay(['lunch'])"><span class="btn-ico">🍛</span>Save Lunch</button>
+          <button class="btn-slot-save save-dinner" id="save-dinner-btn" onclick="saveDay(['dinner'])"><span class="btn-ico">🌙</span>Save Dinner</button>
+        </div>
+        <button class="btn-save-all" id="save-all-btn" onclick="saveDay(['morning','lunch','dinner'])"><span class="btn-ico btn-ico-light">💾</span>Save All Meal</button>
+      </div>
     </div>
   </div>
+  {% endif %}
 
-
-  <!-- MEAL TYPE LEGEND -->
-  <div style="display:flex;gap:16px;margin-bottom:14px;font-size:12px;flex-wrap:wrap">
-    <span style="display:flex;align-items:center;gap:5px">
-      <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#f97316"></span>
-      <strong>M</strong> Morning
-    </span>
-    <span style="display:flex;align-items:center;gap:5px">
-      <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--accent)"></span>
-      <strong>L</strong> Lunch
-    </span>
-    <span style="display:flex;align-items:center;gap:5px">
-      <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#8b5cf6"></span>
-      <strong>D</strong> Dinner
-    </span>
-  </div>
-
-  <!-- MEMBER CARDS GRID -->
-  <div id="meal-cards-grid" style="
-    display:grid;
-    grid-template-columns:repeat(auto-fill,minmax(320px,1fr));
-    gap:12px;
-    margin-bottom:24px
-  "></div>
-
-  <!-- EMPTY HINT -->
-  <div id="no-day-hint" style="text-align:center;padding:60px 20px;color:var(--t3)">
-    <div style="font-size:48px;margin-bottom:12px;opacity:.3">📅</div>
-    <div style="font-size:15px;font-weight:600;color:var(--t2);margin-bottom:6px">Select a day above</div>
-    <div style="font-size:13px">Click any day chip to view and edit meal entries</div>
-  </div>
+  <!-- Confirm Meals reviews & locks in whatever has already been staged
+       on the Meal Mark page — it intentionally does not repeat the
+       per-member marking grid. -->
 
 </div><!-- /tab-day -->
 
@@ -196,6 +180,20 @@ function dayValuesFor(mid) {
   return { morning: 0, lunch: 0, dinner: 0 };
 }
 
+// Confirm Meals has no visible input grid, so — unlike Meal Mark, which
+// reads live DOM input values — this page's "current" value for a
+// member is whatever bulkSet()/updateVal() has staged into localGrid
+// for the selected day this session, falling back to that member's
+// draft (exactly what the grid would have shown pre-filled if it were
+// still on this page).
+function currentValuesFor(mid) {
+  const local = localGrid[mid] && localGrid[mid][String(selDay)];
+  if (local) {
+    return { morning: local.morning || 0, lunch: local.lunch || 0, dinner: local.dinner || 0 };
+  }
+  return dayValuesFor(mid);
+}
+
 // ── MULTIPLIER HELPERS ─────────────────────────────────────
 // info.multi_morning/multi_lunch/multi_dinner come from DAY_TOTALS (per-day config).
 // info.multi is only set when all three slots share the same value (simple display case).
@@ -248,11 +246,8 @@ function selectDay(d) {
   selDay = d;
   buildDayChips();
   renderDayHeading();
-  renderMealCards();
   updateSaveButtonsState();
   if (!CAN_EDIT_ALL) buildSelfInputStatusRow();
-  document.getElementById('no-day-hint').style.display = 'none';
-  document.getElementById('meal-cards-grid').style.display = '';
 }
 
 function renderDayHeading() {
@@ -269,8 +264,10 @@ function renderDayHeading() {
       (special ? `  ·  ${multiplierLabel(info)} multiplier` : '');
 
   const badge = document.getElementById('eff-total-badge');
-  badge.style.display  = 'inline-flex';
-  badge.textContent    = `⚡ ${eff.toFixed(1)} eff. meals`;
+  if (badge) {
+    badge.style.display  = 'inline-flex';
+    badge.textContent    = `⚡ ${eff.toFixed(1)} eff. meals`;
+  }
 
   const banner = document.getElementById('special-banner');
   if (special) {
@@ -292,6 +289,7 @@ function renderDayHeading() {
 // ── RENDER MEMBER CARDS (with Morning / Lunch / Dinner inputs) ──
 function renderMealCards() {
   const grid = document.getElementById('meal-cards-grid');
+  if (!grid) return;  // Confirm Meals has no member grid — nothing to render into.
   const info  = DAY_TOTALS[String(selDay)] || {};
   const special = isSpecialInfo(info);
   grid.innerHTML = '';
@@ -648,10 +646,8 @@ async function saveDay(slots) {
 
   const marks = {};
   MEMBERS.forEach(m => {
-    const morning = parseInt(document.getElementById(`inp_morning_${m.id}`)?.value || 0) || 0;
-    const lunch   = parseInt(document.getElementById(`inp_lunch_${m.id}`)?.value   || 0) || 0;
-    const dinner  = parseInt(document.getElementById(`inp_dinner_${m.id}`)?.value  || 0) || 0;
-    marks[m.id] = { morning, lunch, dinner };
+    const v = currentValuesFor(m.id);
+    marks[m.id] = { morning: v.morning, lunch: v.lunch, dinner: v.dinner };
   });
 
   try {
@@ -718,12 +714,11 @@ async function saveDay(slots) {
 function changeMonthYear() {
   const m = document.getElementById('sel-month').value;
   const y = document.getElementById('sel-year').value;
-  location.href = `/meals/?month=${m}&year=${y}`;
+  location.href = `/meals/confirm/?month=${m}&year=${y}`;
 }
 
 // ── INIT ──────────────────────────────────────────────────
 buildDayChips();
-document.getElementById('meal-cards-grid').style.display = 'none';
 selectDay(selDay);
 </script>
 {% endblock %}

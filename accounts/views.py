@@ -292,7 +292,7 @@ def member_list(request):
     if not (member.is_manager() or member.has_perm_code('manage_members')):
         messages.error(request, 'Access denied.')
         return redirect('dashboard')
-    members = Member.objects.filter(is_active=True).select_related('user').order_by('joined_date')
+    members = Member.objects.filter(is_active=True).select_related('user').order_by('joined_date', 'name', 'id')
     return render(request, 'accounts/members.html', {'members': members})
 
 

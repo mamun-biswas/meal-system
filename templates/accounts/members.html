@@ -12,7 +12,7 @@
     <div class="section-sub">Manage access, roles and permissions</div>
   </div>
   {% if user_member.is_manager %}
-  <a href="/members/add/" class="btn btn-primary">+ Add Member</a>
+  <button class="btn btn-primary" onclick="openModal('modal-add')">+ Add Member</button>
   {% endif %}
 </div>
 
@@ -76,10 +76,99 @@
     </tbody>
   </table>
 </div>
+
+{% if user_member.is_manager %}
+<div class="modal-overlay" id="modal-add">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">➕ Add Member</div>
+      <button class="modal-close" onclick="closeModal('modal-add')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Full Name *</label>
+          <input type="text" id="mem-name" class="form-control" placeholder="e.g. Rahim Uddin">
+        </div>
+        <div class="form-group">
+          <label class="form-label">বাংলা নাম <span style="color:var(--t3);font-weight:400">(optional)</span></label>
+          <input type="text" id="mem-name-bn" class="form-control" placeholder="যেমন: রহিম উদ্দিন"
+                 style="font-family:'Noto Sans Bengali','Hind Siliguri',sans-serif">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Phone Number *</label>
+          <input type="tel" id="mem-phone" class="form-control" placeholder="01XXXXXXXXX">
+          <div class="form-hint">Used as login credential</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Room Number</label>
+          <input type="text" id="mem-room" class="form-control" placeholder="e.g. A-101">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Role *</label>
+        <select id="mem-role" class="form-control">
+          {% for val,label in roles %}
+          <option value="{{ val }}" {% if val == 'member' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password *</label>
+        <div style="position:relative">
+          <input type="password" id="mem-password" class="form-control" placeholder="Set a secure password"
+                 autocomplete="new-password" style="padding-right:44px">
+          <button type="button"
+            onclick="const i=document.getElementById('mem-password');i.type=i.type==='password'?'text':'password'"
+            style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--t3);font-size:16px;padding:4px">
+            👁
+          </button>
+        </div>
+        <div class="form-hint">Members log in using their phone number + this password</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes / Remarks</label>
+        <input type="text" id="mem-note" class="form-control" placeholder="Optional notes">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add')">Cancel</button>
+      <button class="btn btn-primary" id="mem-add-btn" onclick="addMember()">✅ Create Member</button>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
 <script>
+async function addMember() {
+  const name     = document.getElementById('mem-name')?.value.trim();
+  const name_bn  = document.getElementById('mem-name-bn')?.value.trim();
+  const phone    = document.getElementById('mem-phone')?.value.trim();
+  const room     = document.getElementById('mem-room')?.value.trim();
+  const role     = document.getElementById('mem-role')?.value;
+  const password = document.getElementById('mem-password')?.value;
+  const note     = document.getElementById('mem-note')?.value.trim();
+  if (!name)     { toast('Error','Enter the member\\'s name','error'); return; }
+  if (!phone)    { toast('Error','Enter a phone number','error'); return; }
+  if (!password) { toast('Error','Set a password','error'); return; }
+  const btn = document.getElementById('mem-add-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    const d = await apiCall('/members/add/', 'POST',
+      { name, name_bn, phone, room_number: room, role, password, note });
+    toast('Member Added', d.message, 'success');
+    closeModal('modal-add');
+    setTimeout(() => location.reload(), 1000);
+  } catch(e) {
+    toast('Error', e.message, 'error');
+  }
+  btn.disabled = false; btn.innerHTML = '✅ Create Member';
+}
+
 async function deactivate(pk, name) {
   if (!confirm(`Deactivate "${name}"?\nThey will lose login access. Data is preserved.`)) return;
   try {

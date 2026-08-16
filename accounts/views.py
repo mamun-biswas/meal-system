@@ -293,29 +293,37 @@ def member_list(request):
         messages.error(request, 'Access denied.')
         return redirect('dashboard')
     members = Member.objects.filter(is_active=True).select_related('user').order_by('joined_date', 'name', 'id')
-    return render(request, 'accounts/members.html', {'members': members})
+    return render(request, 'accounts/members.html', {'members': members, 'roles': Member.ROLE_CHOICES})
 
 
 @login_required
 def member_add(request):
     member = request.user.member
+    is_ajax = request.content_type == 'application/json'
     if not member.is_manager():
+        if is_ajax:
+            return JsonResponse({'error': 'Only Manager can add members.'}, status=403)
         messages.error(request, 'Only Manager can add members.')
         return redirect('member_list')
     if request.method == 'POST':
         with transaction.atomic():
-            phone = request.POST.get('phone', '').strip()
-            name  = request.POST.get('name', '').strip()
-            name_bn = request.POST.get('name_bn', '').strip()
-            role  = request.POST.get('role', Member.ROLE_MEMBER)
-            room  = request.POST.get('room_number', '').strip()
-            note  = request.POST.get('note', '').strip()
-            pwd   = request.POST.get('password', '').strip()
+            data = json.loads(request.body) if is_ajax else request.POST
+            phone = data.get('phone', '').strip()
+            name  = data.get('name', '').strip()
+            name_bn = data.get('name_bn', '').strip()
+            role  = data.get('role', Member.ROLE_MEMBER)
+            room  = data.get('room_number', '').strip()
+            note  = data.get('note', '').strip()
+            pwd   = data.get('password', '').strip()
             if not phone or not name or not pwd:
+                if is_ajax:
+                    return JsonResponse({'error': 'Phone, Name and Password are required.'}, status=400)
                 messages.error(request, 'Phone, Name and Password are required.')
                 return render(request, 'accounts/member_form.html',
                               {'action': 'Add', 'roles': Member.ROLE_CHOICES})
             if Member.objects.filter(phone=phone).exists():
+                if is_ajax:
+                    return JsonResponse({'error': f'Phone {phone} is already registered in this mess.'}, status=400)
                 messages.error(request, f'Phone {phone} is already registered in this mess.')
                 return render(request, 'accounts/member_form.html',
                               {'action': 'Add', 'roles': Member.ROLE_CHOICES})
@@ -332,6 +340,8 @@ def member_add(request):
                         member=m, codename=codename, defaults={'granted': False}
                     )
             log_action(member, f'Added member: {name}', f'Phone:{phone} Role:{role}', request)
+            if is_ajax:
+                return JsonResponse({'message': f'Member "{name}" added!'})
             messages.success(request, f'Member "{name}" added!')
             return redirect('member_list')
     return render(request, 'accounts/member_form.html',

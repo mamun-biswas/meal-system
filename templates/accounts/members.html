@@ -152,7 +152,7 @@ async function addMember() {
   const role     = document.getElementById('mem-role')?.value;
   const password = document.getElementById('mem-password')?.value;
   const note     = document.getElementById('mem-note')?.value.trim();
-  if (!name)     { toast('Error','Enter the member\\'s name','error'); return; }
+  if (!name)     { toast('Error','Enter the member\'s name','error'); return; }
   if (!phone)    { toast('Error','Enter a phone number','error'); return; }
   if (!password) { toast('Error','Set a password','error'); return; }
   const btn = document.getElementById('mem-add-btn');
